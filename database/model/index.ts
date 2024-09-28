@@ -1,9 +1,36 @@
 import { BaseMessage } from "@langchain/core/messages";
-import { DbMessage } from "../../message/index.js";
 import sqlite3 from "sqlite3";
 
+export const messageType = {
+  humanMessage: "HumanMessage",
+  toolMessage: "ToolMessage",
+  aiMessage: "AiMessage",
+} as const;
+
+export type MessageType = (typeof messageType)[keyof typeof messageType];
+
+export interface DbMessage {
+  id: number;
+  run_id: number;
+  type: MessageType;
+  content: string;
+  tool_call: string;
+  timestamp: number;
+}
+
+export interface DbAgent {
+  id: number;
+  agent_name: string;
+}
+
+export interface DbRun {
+  id: number;
+  agent_id: number;
+}
+
 export interface ReadonlyDatabase {
-  getAllRuns: (agentName: string) => Promise<DbMessage[]>;
+  getAllAgents: () => Promise<DbAgent[]>;
+  getAllRuns: (agentName: string) => Promise<DbRun[]>;
   getAllMessages: (runId: string) => Promise<DbMessage[]>;
   getMessage: (runId: string, messageId: string) => Promise<DbMessage>;
 }

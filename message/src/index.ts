@@ -3,7 +3,8 @@ import {
   ToolMessage,
   HumanMessage,
 } from "@langchain/core/messages";
-import { DbMessage, Message, messageType } from "../model/index.js";
+import { Message } from "../model/index.js";
+import { DbMessage, messageType } from "../../database/index.js";
 
 export function toType(message: BaseMessage) {
   if (message instanceof ToolMessage) {

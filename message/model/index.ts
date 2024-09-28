@@ -1,21 +1,5 @@
 import z from "zod";
-
-export const messageType = {
-  humanMessage: "HumanMessage",
-  toolMessage: "ToolMessage",
-  aiMessage: "AiMessage",
-} as const;
-
-export type MessageType = (typeof messageType)[keyof typeof messageType];
-
-export interface DbMessage {
-  id: number;
-  run_id: number;
-  type: MessageType;
-  content: string;
-  tool_call: string;
-  timestamp: number;
-}
+import { messageType } from "../../database/index.js";
 
 export const messageSchema = z.object({
   runId: z.string(),

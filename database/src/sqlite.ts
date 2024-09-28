@@ -40,8 +40,17 @@ export async function sqlite(
   `);
 
   return {
-    getAllRuns: async (agentName: string) =>
-      db.all("SELECT * FROM runs WHERE agent_name = ?", agentName),
+    getAllAgents: async () => db.all("SELECT * FROM agents"),
+    getAllRuns: async (agentName: string) => {
+      const agent = await db.get(
+        "SELECT * FROM agents WHERE agent_name = ?",
+        agentName,
+      );
+      if (!agent) {
+        throw new Error("Agent not found");
+      }
+      return db.all("SELECT * FROM runs WHERE agent_id = ?", agent.id);
+    },
     getAllMessages: async (runId: string) =>
       db.all(
         "SELECT * FROM messages WHERE run_id = ? ORDER BY timestamp ASC",
