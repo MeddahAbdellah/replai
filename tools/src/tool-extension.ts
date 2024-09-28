@@ -35,5 +35,6 @@ export function toolsWithContext<T>(tools: ToolDefinition[]) {
       newTool.func.bind(null, storage),
       newTool.fields,
     ),
-  );
+    // TODO: Fix the type of the tool function
+  ) as any;
 }

@@ -50,5 +50,6 @@ export function toMessage(message: DbMessage): Message {
           ),
         }
       : {}),
+    timestamp: message.timestamp,
   };
 }

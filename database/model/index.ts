@@ -5,6 +5,7 @@ import sqlite3 from "sqlite3";
 export interface ReadonlyDatabase {
   getAllRuns: (agentName: string) => Promise<DbMessage[]>;
   getAllMessages: (runId: string) => Promise<DbMessage[]>;
+  getMessage: (runId: string, messageId: string) => Promise<DbMessage>;
 }
 
 export interface DatabaseConfig {
@@ -13,6 +14,7 @@ export interface DatabaseConfig {
 }
 
 export interface Database extends ReadonlyDatabase {
-  createRun: (agentName: string) => Promise<{ runId: string }>;
+  createRun: (agentId: string) => Promise<{ runId: string }>;
+  getOrCreateAgent: (agentName: string) => Promise<{ agentId: string }>;
   insertMessages: (runId: string, messages: BaseMessage[]) => Promise<void>;
 }

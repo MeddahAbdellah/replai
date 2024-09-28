@@ -2,16 +2,16 @@ import { ChainValues } from "@langchain/core/utils/types";
 import { Database } from "../../database/index.js";
 
 export async function replayCallback(config: {
-  runName: string;
+  agentName: string;
   database: Database;
 }) {
-  const { database, runName } = config;
-  const { runId } = await database.createRun(runName);
+  const { database, agentName } = config;
+  const { agentId } = await database.getOrCreateAgent(agentName);
+  const { runId } = await database.createRun(agentId);
   return {
     handleChainEnd: async (outputs: ChainValues) => {
       if (!("messages" in outputs)) return;
       await database.insertMessages(runId, outputs.messages);
-      debugger;
     },
   };
 }
