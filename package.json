@@ -1,0 +1,39 @@
+{
+  "name": "langreplay",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "rm -rf ./dist && pnpm run build && node dist/apps/runner/main.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.4.2",
+    "typescript": "^5.5.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/langreplay.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/langreplay/issues"
+  },
+  "homepage": "https://github.com/yourusername/langreplay#readme",
+  "dependencies": {
+    "@langchain/core": "^0.3.3",
+    "express": "^4.21.0",
+    "langchain": "^0.3.2",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "zod": "^3.23.8"
+  }
+}
