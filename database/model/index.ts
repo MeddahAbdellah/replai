@@ -20,7 +20,7 @@ export interface DbMessage {
 
 export interface DbAgent {
   id: number;
-  agent_name: string;
+  name: string;
 }
 
 export interface DbRun {
@@ -30,7 +30,7 @@ export interface DbRun {
 
 export interface ReadonlyDatabase {
   getAllAgents: () => Promise<DbAgent[]>;
-  getAllRuns: (agentName: string) => Promise<DbRun[]>;
+  getAllRuns: (agentId: string) => Promise<DbRun[]>;
   getAllMessages: (runId: string) => Promise<DbMessage[]>;
   getMessage: (runId: string, messageId: string) => Promise<DbMessage>;
 }

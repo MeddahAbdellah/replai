@@ -1,6 +1,6 @@
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
-import { AIMessage, BaseMessage } from "@langchain/core/messages";
+import { BaseMessage } from "@langchain/core/messages";
 import { toType } from "../../message/src/index.js";
 import { Database, DatabaseConfig } from "../model/index.js";
 
@@ -15,7 +15,7 @@ export async function sqlite(
   await db.exec(`
     CREATE TABLE IF NOT EXISTS agents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      agent_name TEXT UNIQUE NOT NULL
+      name TEXT UNIQUE NOT NULL
     )
   `);
 
@@ -41,11 +41,8 @@ export async function sqlite(
 
   return {
     getAllAgents: async () => db.all("SELECT * FROM agents"),
-    getAllRuns: async (agentName: string) => {
-      const agent = await db.get(
-        "SELECT * FROM agents WHERE agent_name = ?",
-        agentName,
-      );
+    getAllRuns: async (agentId: string) => {
+      const agent = await db.get("SELECT * FROM agents WHERE id = ?", agentId);
       if (!agent) {
         throw new Error("Agent not found");
       }
@@ -69,14 +66,14 @@ export async function sqlite(
     },
     getOrCreateAgent: async (agentName: string) => {
       const agent = await db.get(
-        "SELECT * FROM agents WHERE agent_name = ?",
+        "SELECT * FROM agents WHERE name = ?",
         agentName,
       );
       if (agent) {
         return { agentId: agent.id.toString() };
       }
       const newAgent = await db.run(
-        "INSERT INTO agents (agent_name) VALUES (?)",
+        "INSERT INTO agents (name) VALUES (?)",
         agentName,
       );
       if (!newAgent.lastID) {
