@@ -1,109 +1,52 @@
-import express from "express";
-import { z } from "zod";
-import { Message } from "../../message/index.js";
-import { toMessage } from "../../message/src/index.js";
 import { toolsWithContext } from "../../tools/index.js";
-import { ReadonlyDatabase } from "../../database/index.js";
+import { Database } from "../../database/index.js";
+import { replayCallback } from "../../callbacks/index.js";
+import { Runner } from "../../runner/index.js";
 
-class ToolNotFoundError extends Error {
-  constructor(toolName: string, tools: ReturnType<typeof toolsWithContext>) {
-    super(
-      `Tool ${toolName} does not exist in the list of tools: ${tools.map((tool: any) => tool.name).join(", ")}`,
-    );
-  }
-}
-
-export async function localSpawner(config: {
+type InferAgentInvokeFunction<T> = T extends (tools: any) => Promise<infer R>
+  ? R extends { invoke: infer InvokeFunction }
+    ? InvokeFunction
+    : never
+  : never;
+// TODO: fix type to ensure that agentFactory returns an object with an invoke method
+export async function localSpawner<TAgentFactory extends Function>(config: {
+  name: string;
   tools: ReturnType<typeof toolsWithContext>;
-  database: ReadonlyDatabase;
-  port: number;
+  database: Database;
+  agentFactory: TAgentFactory;
+  invokeProps: Parameters<InferAgentInvokeFunction<TAgentFactory>>;
+  runner: Runner<
+    Parameters<InferAgentInvokeFunction<TAgentFactory>>[0],
+    Parameters<InferAgentInvokeFunction<TAgentFactory>>[1],
+    ReturnType<InferAgentInvokeFunction<TAgentFactory>>
+  >;
 }) {
-  const { tools, database, port } = config;
-  const app = express();
-  app.use(express.json());
-
-  app.post("/", handleReplayRequest(tools, database));
-
-  app.listen(port, () => {
-    console.log("LangReplay server listening on port 9999");
+  const { tools, database, agentFactory, name, invokeProps, runner } = config;
+  const invokeInputs = invokeProps[0];
+  const invokeOptions = invokeProps[1];
+  const callbacksWithReplay = [
+    ...(typeof invokeOptions === "object" &&
+    invokeOptions &&
+    "callbacks" in invokeOptions &&
+    Array.isArray(invokeOptions.callbacks)
+      ? invokeOptions.callbacks
+      : []),
+    await replayCallback({ agentName: name, database }),
+  ];
+  const agent = await agentFactory(tools);
+  const invokePropsWithReplay = [
+    invokeInputs,
+    {
+      ...(invokeOptions && typeof invokeOptions === "object"
+        ? invokeOptions
+        : {}),
+      callbacks: callbacksWithReplay,
+    },
+  ] as const;
+  await runner({
+    tools,
+    database,
+    invokeProps: invokePropsWithReplay,
+    agent,
   });
-}
-
-function handleReplayRequest(
-  tools: ReturnType<typeof toolsWithContext>,
-  database: ReadonlyDatabase,
-) {
-  return async (req: express.Request, res: express.Response) => {
-    const { runId, messageId } = req.body;
-    if (!runId) {
-      res.status(400).json({ error: "runId is required" });
-      return;
-    }
-
-    if (!messageId) {
-      res.status(400).json({ error: "messageId is required" });
-      return;
-    }
-
-    try {
-      const dbMessage = await database.getMessage(runId, messageId);
-      const message = toMessage(dbMessage);
-
-      if (!message.tool_calls) {
-        res
-          .status(400)
-          .json({ error: "No tools to execute", details: message });
-        return;
-      }
-
-      const results = await executeTools(message.tool_calls, tools);
-      res.json({ results });
-      return;
-    } catch (error) {
-      if (error instanceof ToolNotFoundError) {
-        res
-          .status(400)
-          .json({ error: "Tool Not found", details: error.message });
-        return;
-      } else if (error instanceof z.ZodError) {
-        res
-          .status(400)
-          .json({ error: "Invalid message format", details: error.errors });
-        return;
-      } else {
-        res.status(500).json({ error: "Internal server error" });
-        return;
-      }
-    }
-  };
-}
-
-async function executeTools(
-  toolCalls: NonNullable<Message["tool_calls"]>,
-  tools: ReturnType<typeof toolsWithContext>,
-) {
-  const results = [];
-  for (const toolCall of toolCalls) {
-    const result = await executeSingleTool(toolCall, tools);
-    results.push(result);
-  }
-  return results;
-}
-
-async function executeSingleTool(
-  toolCall: NonNullable<Message["tool_calls"]>[0],
-  tools: ReturnType<typeof toolsWithContext>,
-) {
-  const tool = tools.find((t: any) => t.name === toolCall.name);
-  if (!tool || !tool.func) {
-    throw new ToolNotFoundError(toolCall.name, tools);
-  }
-  try {
-    const result = await tool.invoke(
-      toolCall.args.input as Record<string, unknown>,
-    );
-    return { toolCallName: toolCall.name, result };
-  } catch (error) {
-    throw error;
-  }
 }
