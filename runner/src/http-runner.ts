@@ -11,7 +11,7 @@ export function httpRunner<T = unknown, U = unknown, R = unknown>(config: {
 }): Runner<T, U, R> {
   const { port } = config;
   return async (params) => {
-    const { tools, database, invokeProps, agent } = params;
+    const { tools, database, invokeProps, agent, agentName } = params;
     const app = express();
     app.use(express.json());
 
@@ -26,21 +26,9 @@ export function httpRunner<T = unknown, U = unknown, R = unknown>(config: {
       res.json({ status: "ok" });
     });
 
-    // Get all agents
-    app.get("/agents", async (req, res) => {
+    app.get("/runs", async (req, res) => {
       try {
-        const agents = await database.getAllAgents();
-        res.json(agents);
-      } catch (error) {
-        res.status(500).json({ error: "Failed to fetch agents" });
-      }
-    });
-
-    // Get all runs for a specific agent
-    app.get("/agents/:agentId/runs", async (req, res) => {
-      try {
-        const { agentId } = req.params;
-        console.log({ agentId });
+        const { agentId } = await database.getOrCreateAgent(agentName);
         const runs = await database.getAllRuns(agentId);
         res.json(runs);
       } catch (error) {
@@ -49,7 +37,6 @@ export function httpRunner<T = unknown, U = unknown, R = unknown>(config: {
       }
     });
 
-    // Get all messages for a specific run
     app.get("/runs/:runId/messages", async (req, res) => {
       try {
         const { runId } = req.params;
@@ -60,7 +47,6 @@ export function httpRunner<T = unknown, U = unknown, R = unknown>(config: {
       }
     });
 
-    // Get a specific message from a run
     app.get("/runs/:runId/messages/:messageId", async (req, res) => {
       try {
         const { runId, messageId } = req.params;

@@ -48,5 +48,6 @@ export async function localSpawner<TAgentFactory extends Function>(config: {
     database,
     invokeProps: invokePropsWithReplay,
     agent,
+    agentName: name,
   });
 }

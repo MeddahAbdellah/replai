@@ -40,7 +40,6 @@ export async function sqlite(
   `);
 
   return {
-    getAllAgents: async () => db.all("SELECT * FROM agents"),
     getAllRuns: async (agentId: string) => {
       const agent = await db.get("SELECT * FROM agents WHERE id = ?", agentId);
       if (!agent) {

@@ -1,6 +1,7 @@
 # Roadmap
 
 - Expose an http runner ✅
+- Fix: a runner shouldn't store agents nor know about agents, it's an agent itself
 - Add ability to add http agents on the frontend
 - Test it with a frontend
 - Improve the frontend UX

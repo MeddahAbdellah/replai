@@ -6,4 +6,5 @@ export type Runner<T, U, R> = (params: {
   database: Database;
   invokeProps: readonly [T, U];
   agent: { invoke: (input: T, options: U) => Promise<R> };
+  agentName: string;
 }) => Promise<void>;

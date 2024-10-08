@@ -29,7 +29,6 @@ export interface DbRun {
 }
 
 export interface ReadonlyDatabase {
-  getAllAgents: () => Promise<DbAgent[]>;
   getAllRuns: (agentId: string) => Promise<DbRun[]>;
   getAllMessages: (runId: string) => Promise<DbMessage[]>;
   getMessage: (runId: string, messageId: string) => Promise<DbMessage>;
