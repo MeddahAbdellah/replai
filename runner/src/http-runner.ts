@@ -2,18 +2,21 @@ import { ReadonlyDatabase } from "../../database/index.js";
 import { toolsWithContext, ToolNotFoundError } from "../../tools/index.js";
 import express from "express";
 import { z } from "zod";
+import cors from "cors";
 import { Message } from "../../message/index.js";
 import { toMessage } from "../../message/src/index.js";
 import { Runner } from "../model/index.js";
 
 export function httpRunner<T = unknown, U = unknown, R = unknown>(config: {
   port: number;
+  corsOptions?: cors.CorsOptions;
 }): Runner<T, U, R> {
-  const { port } = config;
+  const { port, corsOptions = { origin: "*" } } = config;
   return async (params) => {
     const { tools, database, invokeProps, agent, agentName } = params;
     const app = express();
     app.use(express.json());
+    app.use(cors(corsOptions));
 
     app.post("/replay", handleReplayRequest(tools, database));
 
