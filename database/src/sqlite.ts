@@ -15,7 +15,7 @@ export async function sqlite(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       status TEXT NOT NULL,
       task_status TEXT NOT NULL,
-      timestamp INTEGER NOT NULL,
+      timestamp INTEGER NOT NULL
     )
   `);
 
@@ -71,7 +71,7 @@ export async function sqlite(
         await db.run("BEGIN TRANSACTION");
 
         const stmt = await db.prepare(
-          "INSERT INTO messages (run_id, type, content, tool_call, timestamp) VALUES (?, ?, ?, ?, ?)",
+          "INSERT INTO messages (run_id, type, content, tool_calls, timestamp) VALUES (?, ?, ?, ?, ?)",
         );
         for (const message of messages) {
           await stmt.run(
