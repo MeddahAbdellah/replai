@@ -3,9 +3,8 @@ import { toolsWithContext, ToolNotFoundError } from "../../tools/index.js";
 import express from "express";
 import { z } from "zod";
 import cors from "cors";
-import { Message } from "../../message/index.js";
-import { toMessage } from "../../message/src/index.js";
-import { Runner } from "../model/index.js";
+import { Message, Runner } from "../model/index.js";
+import { toMessage } from "../mappers/toMessage.js";
 
 export function httpRunner<T = unknown, U = unknown, R = unknown>(config: {
   port: number;
@@ -31,8 +30,7 @@ export function httpRunner<T = unknown, U = unknown, R = unknown>(config: {
 
     app.get("/runs", async (req, res) => {
       try {
-        const { agentId } = await database.getOrCreateAgent(agentName);
-        const runs = await database.getAllRuns(agentId);
+        const runs = await database.getAllRuns();
         res.json(runs);
       } catch (error) {
         console.error(error);

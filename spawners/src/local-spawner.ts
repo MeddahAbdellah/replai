@@ -31,7 +31,7 @@ export async function localSpawner<TAgentFactory extends Function>(config: {
     Array.isArray(invokeOptions.callbacks)
       ? invokeOptions.callbacks
       : []),
-    await replayCallback({ agentName: name, database }),
+    await replayCallback({ database }),
   ];
   const agent = await agentFactory(tools);
   const invokePropsWithReplay = [

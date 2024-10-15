@@ -14,22 +14,28 @@ export interface DbMessage {
   run_id: number;
   type: MessageType;
   content: string;
-  tool_call: string;
+  tool_calls: string;
   timestamp: number;
 }
 
-export interface DbAgent {
-  id: number;
-  name: string;
-}
+export const runStatus = {
+  scheduled: "scheduled",
+  running: "running",
+  success: "success",
+  failed: "failed",
+} as const;
+
+export type RunStatus = (typeof runStatus)[keyof typeof runStatus];
 
 export interface DbRun {
   id: number;
-  agent_id: number;
+  status: RunStatus;
+  taskStatus: string;
+  timestamp: string;
 }
 
 export interface ReadonlyDatabase {
-  getAllRuns: (agentId: string) => Promise<DbRun[]>;
+  getAllRuns: () => Promise<DbRun[]>;
   getAllMessages: (runId: string) => Promise<DbMessage[]>;
   getMessage: (runId: string, messageId: string) => Promise<DbMessage>;
 }
@@ -40,7 +46,9 @@ export interface DatabaseConfig {
 }
 
 export interface Database extends ReadonlyDatabase {
-  createRun: (agentId: string) => Promise<{ runId: string }>;
-  getOrCreateAgent: (agentName: string) => Promise<{ agentId: string }>;
-  insertMessages: (runId: string, messages: BaseMessage[]) => Promise<void>;
+  createRun: () => Promise<{ runId: string }>;
+  insertMessages: (
+    runId: string,
+    messages: Omit<DbMessage, "run_id" | "id">[],
+  ) => Promise<void>;
 }
