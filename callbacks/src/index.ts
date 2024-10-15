@@ -1,13 +1,13 @@
 import { Database, DbMessage, messageType } from "../../database/index.js";
 
-export function toType(message: { _getType(): string }) {
+function toType(message: { _getType(): string }) {
   const type = message._getType();
   type;
   debugger;
   return messageType.humanMessage;
 }
 
-export function toDbMessage(message: {
+function toDbMessage(message: {
   _getType(): string;
   content: string;
   tool_calls?: string;
@@ -29,7 +29,8 @@ export async function replayCallback(config: { database: Database }) {
   return {
     handleChainEnd: async (outputs: Record<string, any>) => {
       if (!("messages" in outputs)) return;
-      await database.insertMessages(runId, outputs.messages);
+      const messages = outputs.messages.map(toDbMessage);
+      await database.insertMessages(runId, messages);
     },
   };
 }
