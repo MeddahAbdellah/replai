@@ -5,14 +5,17 @@ import { z } from "zod";
 import cors from "cors";
 import { Message, Runner } from "../model/index.js";
 import { toMessage } from "../mappers/toMessage.js";
+import { LangChainHumanMessageToParameterizedMessage } from "../mappers/toParameterizedMessage.js";
+import { langChainToDbMessage } from "../../database/mappers/langchain.js";
 
-export function httpRunner<T = unknown, U = unknown, R = unknown>(config: {
+export function httpRunner<R = unknown, M = unknown>(config: {
   port: number;
   corsOptions?: cors.CorsOptions;
-}): Runner<T, U, R> {
+}): Runner<R, M> {
   const { port, corsOptions = { origin: "*" } } = config;
   return async (params) => {
-    const { tools, database, invokeProps, agent, agentName } = params;
+    const { tools, database, agentInvoke, messages, replayCallbackFactory } =
+      params;
     const app = express();
     app.use(express.json());
     app.use(cors(corsOptions));
@@ -20,15 +23,28 @@ export function httpRunner<T = unknown, U = unknown, R = unknown>(config: {
     app.post("/replay", handleReplayRequest(tools, database));
 
     app.post("/invoke", async (req, res) => {
-      const result = await agent.invoke(...invokeProps);
+      const parameters = req.body;
+      const parameterizedMessages = messages.map(
+        LangChainHumanMessageToParameterizedMessage(parameters),
+      );
+      const { runId } = await database.createRun();
+      await database.insertMessages(
+        runId,
+        parameterizedMessages.map(langChainToDbMessage),
+      );
+      const replayCallback = await replayCallbackFactory({ database, runId });
+      const result = await agentInvoke({
+        messages: parameterizedMessages,
+        replayCallback,
+      });
       res.json(result);
     });
 
-    app.get("/health-check", (req, res) => {
+    app.get("/health-check", (_req, res) => {
       res.json({ status: "ok" });
     });
 
-    app.get("/runs", async (req, res) => {
+    app.get("/runs", async (_req, res) => {
       try {
         const runs = await database.getAllRuns();
         res.json(runs);

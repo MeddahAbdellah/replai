@@ -30,10 +30,18 @@ export type Message = z.infer<typeof messageSchema>;
 
 export const MessagesArraySchema = z.array(messageSchema);
 
-export type Runner<T, U, R> = (params: {
+export interface AgentInvokeParams<M> {
+  messages: M[];
+  replayCallback: unknown;
+}
+
+export type Runner<R, M> = (params: {
   tools: ReturnType<typeof toolsWithContext>;
   database: Database;
-  invokeProps: readonly [T, U];
-  agent: { invoke: (input: T, options: U) => Promise<R> };
-  agentName: string;
+  agentInvoke: (params: AgentInvokeParams<M>) => Promise<R>;
+  messages: M[];
+  replayCallbackFactory: (config: {
+    database: Database;
+    runId: string;
+  }) => Promise<unknown>;
 }) => Promise<void>;
