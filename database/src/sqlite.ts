@@ -35,6 +35,13 @@ export async function sqlite(
     getAllRuns: async () => {
       return db.all("SELECT * FROM runs");
     },
+    getRun: async (runId: string) => {
+      const run = await db.get("SELECT * FROM runs WHERE id = ?", runId);
+      if (!run) {
+        throw new Error("Run not found");
+      }
+      return run;
+    },
     getAllMessages: async (runId: string) =>
       db.all(
         "SELECT * FROM messages WHERE run_id = ? ORDER BY timestamp ASC",
@@ -63,6 +70,26 @@ export async function sqlite(
       }
       return { runId: run.lastID.toString() };
     },
+    updateRunStatus: async (runId, status) => {
+      const run = await db.get("SELECT * FROM runs WHERE id = ?", runId);
+      if (!run) {
+        throw new Error("Run not found");
+      }
+      await db.run("UPDATE runs SET status = ? WHERE id = ?", status, runId);
+      return { ...run, status };
+    },
+    updateRunTaskStatus: async (runId, taskStatus) => {
+      const run = await db.get("SELECT * FROM runs WHERE id = ?", runId);
+      if (!run) {
+        throw new Error("Run not found");
+      }
+      await db.run(
+        "UPDATE runs SET task_status = ? WHERE id = ?",
+        taskStatus,
+        runId,
+      );
+      return { ...run, taskStatus };
+    },
     insertMessages: async (
       runId: string,
       messages: Omit<DbMessage, "run_id" | "id">[],
@@ -77,9 +104,9 @@ export async function sqlite(
           await stmt.run(
             runId,
             message.type,
-            JSON.stringify(message.content),
+            message.content,
             "tool_calls" in message && message.tool_calls
-              ? JSON.stringify(message.tool_calls)
+              ? message.tool_calls
               : "",
             Date.now(),
           );

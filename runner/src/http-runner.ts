@@ -14,17 +14,22 @@ export function httpRunner<R = unknown, M = unknown>(config: {
 }): Runner<R, M> {
   const { port, corsOptions = { origin: "*" } } = config;
   return async (params) => {
-    const { tools, database, agentInvoke, messages, replayCallbackFactory } =
-      params;
+    const {
+      tools,
+      database,
+      agentInvoke,
+      messages: messagesFromConfig,
+      replayCallbackFactory,
+    } = params;
     const app = express();
     app.use(express.json());
     app.use(cors(corsOptions));
 
     app.post("/replay", handleReplayRequest(tools, database));
 
-    app.post("/invoke", async (req, res) => {
-      const parameters = req.body;
-      const parameterizedMessages = messages.map(
+    app.post("/runs", async (req, res) => {
+      const { parameters } = req.body;
+      const parameterizedMessages = messagesFromConfig.map(
         LangChainHumanMessageToParameterizedMessage(parameters),
       );
       const { runId } = await database.createRun();
@@ -33,11 +38,22 @@ export function httpRunner<R = unknown, M = unknown>(config: {
         parameterizedMessages.map(langChainToDbMessage),
       );
       const replayCallback = await replayCallbackFactory({ database, runId });
+      await database.updateRunStatus(runId, "running");
+      const run = await database.getRun(runId);
+      res.json(run);
       const result = await agentInvoke({
         messages: parameterizedMessages,
         replayCallback,
       });
-      res.json(result);
+      await database.updateRunStatus(runId, "done");
+      if (
+        result &&
+        typeof result === "object" &&
+        "status" in result &&
+        typeof result.status === "string"
+      ) {
+        await database.updateRunTaskStatus(runId, result.status);
+      }
     });
 
     app.get("/health-check", (_req, res) => {
@@ -51,6 +67,17 @@ export function httpRunner<R = unknown, M = unknown>(config: {
       } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Failed to fetch runs" });
+      }
+    });
+
+    app.get("/runs/:runId", async (req, res) => {
+      try {
+        const { runId } = req.params;
+        const run = await database.getRun(runId);
+        res.json(run);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to fetch run" });
       }
     });
 

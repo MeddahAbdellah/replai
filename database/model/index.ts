@@ -21,7 +21,7 @@ export interface DbMessage {
 export const runStatus = {
   scheduled: "scheduled",
   running: "running",
-  success: "success",
+  done: "done",
   failed: "failed",
 } as const;
 
@@ -36,6 +36,7 @@ export interface DbRun {
 
 export interface ReadonlyDatabase {
   getAllRuns: () => Promise<DbRun[]>;
+  getRun: (runId: string) => Promise<DbRun>;
   getAllMessages: (runId: string) => Promise<DbMessage[]>;
   getMessage: (runId: string, messageId: string) => Promise<DbMessage>;
 }
@@ -47,6 +48,8 @@ export interface DatabaseConfig {
 
 export interface Database extends ReadonlyDatabase {
   createRun: () => Promise<{ runId: string }>;
+  updateRunStatus: (runId: string, status: RunStatus) => Promise<DbRun>;
+  updateRunTaskStatus: (runId: string, taskStatus: string) => Promise<DbRun>;
   insertMessages: (
     runId: string,
     messages: Omit<DbMessage, "run_id" | "id">[],
