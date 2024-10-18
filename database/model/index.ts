@@ -1,5 +1,5 @@
-import { BaseMessage } from "@langchain/core/messages";
 import sqlite3 from "sqlite3";
+import z from "zod";
 
 export const messageType = {
   humanMessage: "HumanMessage",
@@ -10,11 +10,11 @@ export const messageType = {
 export type MessageType = (typeof messageType)[keyof typeof messageType];
 
 export interface DbMessage {
-  id: number;
-  run_id: number;
+  id: string;
+  run_id: string;
   type: MessageType;
-  content: string;
-  tool_calls: string;
+  content: string | null;
+  tool_calls: string | null;
   timestamp: number;
 }
 
@@ -28,17 +28,56 @@ export const runStatus = {
 export type RunStatus = (typeof runStatus)[keyof typeof runStatus];
 
 export interface DbRun {
-  id: number;
+  id: string;
   status: RunStatus;
   taskStatus: string;
   timestamp: string;
 }
 
+export interface Run {
+  id: string;
+  status: RunStatus;
+  taskStatus: string;
+  timestamp: string;
+}
+
+export const messageSchema = z.object({
+  runId: z.string(),
+  type: z.enum(Object.values(messageType) as [string, ...string[]]),
+  content: z.union([
+    z.string(),
+    z.array(
+      z.union([
+        z.object({ type: z.literal("text"), text: z.string() }),
+        z.object({
+          type: z.literal("image_url"),
+          image_url: z.object({ url: z.string() }),
+        }),
+      ]),
+    ),
+    z.null(),
+  ]),
+  toolCalls: z.union([
+    z.array(
+      z.object({
+        name: z.string(),
+        args: z.object({
+          input: z.union([z.string(), z.record(z.unknown())]),
+        }),
+      }),
+    ),
+    z.null(),
+  ]),
+  timestamp: z.number(),
+});
+
+export type Message = z.infer<typeof messageSchema>;
+
 export interface ReadonlyDatabase {
-  getAllRuns: () => Promise<DbRun[]>;
-  getRun: (runId: string) => Promise<DbRun>;
-  getAllMessages: (runId: string) => Promise<DbMessage[]>;
-  getMessage: (runId: string, messageId: string) => Promise<DbMessage>;
+  getAllRuns: () => Promise<Run[]>;
+  getRun: (runId: string) => Promise<Run>;
+  getAllMessages: (runId: string) => Promise<Message[]>;
+  getMessage: (runId: string, messageId: string) => Promise<Message>;
 }
 
 export interface DatabaseConfig {
@@ -48,10 +87,10 @@ export interface DatabaseConfig {
 
 export interface Database extends ReadonlyDatabase {
   createRun: () => Promise<{ runId: string }>;
-  updateRunStatus: (runId: string, status: RunStatus) => Promise<DbRun>;
-  updateRunTaskStatus: (runId: string, taskStatus: string) => Promise<DbRun>;
+  updateRunStatus: (runId: string, status: RunStatus) => Promise<Run>;
+  updateRunTaskStatus: (runId: string, taskStatus: string) => Promise<Run>;
   insertMessages: (
     runId: string,
-    messages: Omit<DbMessage, "run_id" | "id">[],
-  ) => Promise<void>;
+    messages: Omit<Message, "runId">[],
+  ) => Promise<{ messageIds: string[] }>;
 }

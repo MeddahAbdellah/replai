@@ -1,10 +1,9 @@
-import { ReadonlyDatabase } from "../../database/index.js";
+import { Message, ReadonlyDatabase } from "../../database/index.js";
 import { toolsWithContext, ToolNotFoundError } from "../../tools/index.js";
 import express from "express";
 import { z } from "zod";
 import cors from "cors";
-import { Message, Runner } from "../model/index.js";
-import { toMessage } from "../mappers/toMessage.js";
+import { Runner } from "../model/index.js";
 import { LangChainHumanMessageToParameterizedMessage } from "../mappers/toParameterizedMessage.js";
 import { langChainToDbMessage } from "../../database/mappers/langchain.js";
 
@@ -66,7 +65,13 @@ export function httpRunner<R = unknown, M = unknown>(config: {
         res.json(runs);
       } catch (error) {
         console.error(error);
-        res.status(500).json({ error: "Failed to fetch runs" });
+        res.status(500).json({
+          error: "Failed to fetch runs",
+          details:
+            error && typeof error === "object" && "message" in error
+              ? error.message
+              : "Unknown error",
+        });
       }
     });
 
@@ -77,7 +82,13 @@ export function httpRunner<R = unknown, M = unknown>(config: {
         res.json(run);
       } catch (error) {
         console.error(error);
-        res.status(500).json({ error: "Failed to fetch run" });
+        res.status(500).json({
+          error: "Failed to fetch run",
+          details:
+            error && typeof error === "object" && "message" in error
+              ? error.message
+              : "Unknown error",
+        });
       }
     });
 
@@ -87,7 +98,13 @@ export function httpRunner<R = unknown, M = unknown>(config: {
         const messages = await database.getAllMessages(runId);
         res.json(messages);
       } catch (error) {
-        res.status(500).json({ error: "Failed to fetch messages" });
+        res.status(500).json({
+          error: "Failed to fetch messages",
+          details:
+            error && typeof error === "object" && "message" in error
+              ? error.message
+              : "Unknown error",
+        });
       }
     });
 
@@ -101,7 +118,13 @@ export function httpRunner<R = unknown, M = unknown>(config: {
           res.status(404).json({ error: "Message not found" });
         }
       } catch (error) {
-        res.status(500).json({ error: "Failed to fetch message" });
+        res.status(500).json({
+          error: "Failed to fetch message",
+          details:
+            error && typeof error === "object" && "message" in error
+              ? error.message
+              : "Unknown error",
+        });
       }
     });
 
@@ -128,17 +151,16 @@ function handleReplayRequest(
     }
 
     try {
-      const dbMessage = await database.getMessage(runId, messageId);
-      const message = toMessage(dbMessage);
+      const message = await database.getMessage(runId, messageId);
 
-      if (!message.tool_calls) {
+      if (!message.toolCalls) {
         res
           .status(400)
           .json({ error: "No tools to execute", details: message });
         return;
       }
 
-      const results = await executeTools(message.tool_calls, tools);
+      const results = await executeTools(message.toolCalls, tools);
       res.json({ results });
       return;
     } catch (error) {
@@ -161,7 +183,7 @@ function handleReplayRequest(
 }
 
 async function executeTools(
-  toolCalls: NonNullable<Message["tool_calls"]>,
+  toolCalls: NonNullable<Message["toolCalls"]>,
   tools: ReturnType<typeof toolsWithContext>,
 ) {
   const results = [];
@@ -173,7 +195,7 @@ async function executeTools(
 }
 
 async function executeSingleTool(
-  toolCall: NonNullable<Message["tool_calls"]>[0],
+  toolCall: NonNullable<Message["toolCalls"]>[0],
   tools: ReturnType<typeof toolsWithContext>,
 ) {
   const tool = tools.find((t: any) => t.name === toolCall.name);

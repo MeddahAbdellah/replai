@@ -9,17 +9,22 @@
 - Enable parameterization and running many ✅
 - Manage statuses ✅
 - Running a new run with parameterization ✅
-- Replay with modifications
-- Connect vizualization of shell as a first step
+- Decide on where to put the message schema ✅
+- Add zod validation ✅
+- Remove unnecessary dependencies ✅
+- Isolate library specific code
+- Replay messages with modifications
+- Make a tool bank
 
 ---
 
+- Maybe, enable creating an agent from the tool bank
 - Add broker
 - Expose a websocket runner (A need for an event driven runner)
 - Add a postgresql database
-- Test with a frontend
 
 ---
 
+- Connect vizualization of shell as a first step
 - Make an airflow adapted runner
 - Test with an Airflow

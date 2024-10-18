@@ -1,4 +1,4 @@
-import { Database, DbMessage, messageType } from "../../database/index.js";
+import { Database, Message } from "../../database/index.js";
 import { langChainToDbMessage } from "../../database/mappers/langchain.js";
 
 export async function langChainReplayCallbackFactory(config: {

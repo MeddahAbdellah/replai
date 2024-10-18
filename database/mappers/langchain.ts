@@ -1,4 +1,4 @@
-import { DbMessage, messageType } from "../model/index.js";
+import { Message, messageType } from "../model/index.js";
 
 function toType(message: { _getType(): string }) {
   const type = message._getType();
@@ -16,16 +16,19 @@ function toType(message: { _getType(): string }) {
 
 export function langChainToDbMessage(message: {
   _getType(): string;
-  content: string;
-  tool_calls?: string;
-}): Omit<DbMessage, "id" | "run_id"> {
+  content: any;
+  tool_calls?: any;
+}): Omit<Message, "runId"> {
   return {
     type: toType(message),
-    content: JSON.stringify(message.content),
-    tool_calls:
+    content: message.content,
+    toolCalls:
       "tool_calls" in message && message.tool_calls
-        ? JSON.stringify(message.tool_calls)
-        : "",
+        ? message.tool_calls.map((toolCall: any) => ({
+            name: toolCall.name as string,
+            args: toolCall.args as { input: Record<string, any> },
+          }))
+        : null,
     timestamp: Date.now(),
   };
 }

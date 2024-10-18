@@ -1,6 +1,17 @@
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
-import { Database, DatabaseConfig, DbMessage } from "../model/index.js";
+import {
+  Database,
+  DatabaseConfig,
+  DbMessage,
+  DbRun,
+  Message,
+  messageSchema,
+} from "../model/index.js";
+import { toMessage } from "../mappers/toMessage.js";
+import { run } from "node:test";
+import { toRun } from "../mappers/toRun.js";
+import { toDbMessage } from "../mappers/toDbMessage.js";
 
 export async function sqlite(
   config?: Partial<DatabaseConfig>,
@@ -23,63 +34,76 @@ export async function sqlite(
     CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       run_id INTEGER NOT NULL,
-      type TEXT,
+      type TEXT NOT NULL,
       content TEXT,
       tool_calls TEXT,
-      timestamp INTEGER,
+      timestamp INTEGER NOT NULL,
       FOREIGN KEY (run_id) REFERENCES runs(id)
     )
   `);
 
   return {
     getAllRuns: async () => {
-      return db.all("SELECT * FROM runs");
+      return db
+        .all("SELECT * FROM runs")
+        .then((runs: DbRun[]) => runs.map(toRun));
     },
     getRun: async (runId: string) => {
-      const run = await db.get("SELECT * FROM runs WHERE id = ?", runId);
+      const run = (await db.get(
+        "SELECT * FROM runs WHERE id = ?",
+        runId,
+      )) as DbRun;
       if (!run) {
         throw new Error("Run not found");
       }
-      return run;
+      return toRun(run);
     },
     getAllMessages: async (runId: string) =>
-      db.all(
-        "SELECT * FROM messages WHERE run_id = ? ORDER BY timestamp ASC",
-        runId,
-      ),
+      db
+        .all(
+          "SELECT * FROM messages WHERE run_id = ? ORDER BY timestamp ASC",
+          runId,
+        )
+        .then((messages: DbMessage[]) => messages.map(toMessage)),
     getMessage: async (runId: string, messageId: string) => {
-      const message = await db.get(
+      const message = (await db.get(
         "SELECT * FROM messages WHERE run_id = ? AND id = ?",
         runId,
         messageId,
-      );
+      )) as DbMessage;
       if (!message) {
         throw new Error("Message not found");
       }
-      return message;
+      return toMessage(message);
     },
     createRun: async () => {
-      const run = await db.run(
+      const runInsert = await db.run(
         "INSERT INTO runs (status, task_status, timestamp) VALUES (?, ?, ?)",
         "scheduled",
         "unknown",
         Date.now(),
       );
-      if (!run.lastID) {
+      if (!runInsert.lastID) {
         throw new Error("Failed to create run");
       }
-      return { runId: run.lastID.toString() };
+      return { runId: runInsert.lastID.toString() };
     },
     updateRunStatus: async (runId, status) => {
-      const run = await db.get("SELECT * FROM runs WHERE id = ?", runId);
+      const run = (await db.get(
+        "SELECT * FROM runs WHERE id = ?",
+        runId,
+      )) as DbRun;
       if (!run) {
         throw new Error("Run not found");
       }
       await db.run("UPDATE runs SET status = ? WHERE id = ?", status, runId);
-      return { ...run, status };
+      return toRun({ ...run, status } as DbRun);
     },
     updateRunTaskStatus: async (runId, taskStatus) => {
-      const run = await db.get("SELECT * FROM runs WHERE id = ?", runId);
+      const run = (await db.get(
+        "SELECT * FROM runs WHERE id = ?",
+        runId,
+      )) as DbRun;
       if (!run) {
         throw new Error("Run not found");
       }
@@ -88,20 +112,31 @@ export async function sqlite(
         taskStatus,
         runId,
       );
-      return { ...run, taskStatus };
+      return toRun({ ...run, taskStatus } as DbRun);
     },
     insertMessages: async (
       runId: string,
-      messages: Omit<DbMessage, "run_id" | "id">[],
-    ): Promise<void> => {
+      messages: Omit<Message, "runId">[],
+    ): Promise<{ messageIds: string[] }> => {
+      const validatedMessages = messages
+        .map((message) => {
+          const result = messageSchema.safeParse({ runId, ...message });
+          if (!result.success) {
+            throw new Error(`Invalid message: ${result.error}`);
+          }
+          return result.data;
+        })
+        .map(toDbMessage);
+
+      const messageIds: string[] = [];
       try {
         await db.run("BEGIN TRANSACTION");
 
         const stmt = await db.prepare(
           "INSERT INTO messages (run_id, type, content, tool_calls, timestamp) VALUES (?, ?, ?, ?, ?)",
         );
-        for (const message of messages) {
-          await stmt.run(
+        for (const message of validatedMessages) {
+          const result = await stmt.run(
             runId,
             message.type,
             message.content,
@@ -110,9 +145,13 @@ export async function sqlite(
               : "",
             Date.now(),
           );
+          if (result.lastID) {
+            messageIds.push(result.lastID.toString());
+          }
         }
         await stmt.finalize();
         await db.run("COMMIT");
+        return { messageIds };
       } catch (error) {
         await db.run("ROLLBACK");
         throw error;
