@@ -1,8 +1,8 @@
 import pupa from "pupa";
 
-export function LangChainHumanMessageToParameterizedMessage<M>(
+export function lcHumanMessageToParameterizedMessage<M>(
   parameters: Record<string, string>,
-): (message: M) => M & { _getType(): string; content: string } {
+): (message: M) => M {
   return (message: M) => {
     if (!message) {
       return message;

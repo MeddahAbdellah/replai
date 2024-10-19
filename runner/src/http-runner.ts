@@ -4,14 +4,25 @@ import express from "express";
 import { z } from "zod";
 import cors from "cors";
 import { Runner } from "../model/index.js";
-import { LangChainHumanMessageToParameterizedMessage } from "../mappers/toParameterizedMessage.js";
-import { langChainToDbMessage } from "../../database/mappers/langchain.js";
+import {
+  lcToDbMessage,
+  lcHumanMessageToParameterizedMessage,
+} from "../../langchain/index.js";
 
 export function httpRunner<R = unknown, M = unknown>(config: {
   port: number;
   corsOptions?: cors.CorsOptions;
+  messageParameterizationFn?: (
+    parameters: Record<string, string>,
+  ) => (message: M) => M;
+  messageToDbMessageFn?: (message: M) => Omit<Message, "runId">;
 }): Runner<R, M> {
-  const { port, corsOptions = { origin: "*" } } = config;
+  const {
+    port,
+    corsOptions = { origin: "*" },
+    messageParameterizationFn = lcHumanMessageToParameterizedMessage,
+    messageToDbMessageFn = lcToDbMessage,
+  } = config;
   return async (params) => {
     const {
       tools,
@@ -29,12 +40,12 @@ export function httpRunner<R = unknown, M = unknown>(config: {
     app.post("/runs", async (req, res) => {
       const { parameters } = req.body;
       const parameterizedMessages = messagesFromConfig.map(
-        LangChainHumanMessageToParameterizedMessage(parameters),
+        messageParameterizationFn(parameters),
       );
       const { runId } = await database.createRun();
       await database.insertMessages(
         runId,
-        parameterizedMessages.map(langChainToDbMessage),
+        parameterizedMessages.map(messageToDbMessageFn),
       );
       const replayCallback = await replayCallbackFactory({ database, runId });
       await database.updateRunStatus(runId, "running");

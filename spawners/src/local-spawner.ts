@@ -1,8 +1,8 @@
 import { toolsWithContext } from "../../tools/index.js";
 import { Database } from "../../database/index.js";
-import { langChainReplayCallbackFactory } from "../../callbacks/index.js";
 import { Runner } from "../../runner/index.js";
 import { AgentInvokeFactoryConfig, AgentInvokeFn } from "../model/index.js";
+import { lcReplayCallbackFactory } from "../../langchain/index.js";
 
 export async function localSpawner<
   AgentInvokeFactory extends (
@@ -28,7 +28,7 @@ export async function localSpawner<
   });
 
   const replayCallbackFactory =
-    config.replayCallbackFactory ?? langChainReplayCallbackFactory;
+    config.replayCallbackFactory ?? lcReplayCallbackFactory;
 
   await runner({
     tools,
