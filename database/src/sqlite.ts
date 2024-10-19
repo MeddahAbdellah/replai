@@ -9,7 +9,6 @@ import {
   messageSchema,
 } from "../model/index.js";
 import { toMessage } from "../mappers/toMessage.js";
-import { run } from "node:test";
 import { toRun } from "../mappers/toRun.js";
 import { toDbMessage } from "../mappers/toDbMessage.js";
 
@@ -116,11 +115,13 @@ export async function sqlite(
     },
     insertMessages: async (
       runId: string,
-      messages: Omit<Message, "runId">[],
+      messages: Omit<Message, "id" | "runId">[],
     ): Promise<{ messageIds: string[] }> => {
       const validatedMessages = messages
         .map((message) => {
-          const result = messageSchema.safeParse({ runId, ...message });
+          const result = messageSchema
+            .omit({ id: true })
+            .safeParse({ runId, ...message });
           if (!result.success) {
             throw new Error(`Invalid message: ${result.error}`);
           }

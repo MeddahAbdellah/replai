@@ -13,7 +13,7 @@ function toType(type: string) {
   return messageType.aiMessage;
 }
 
-export function lcToDbMessage(message: unknown): Omit<Message, "runId"> {
+export function lcToMessage(message: unknown): Omit<Message, "id" | "runId"> {
   const type = toType((message as any)._getType());
   if (!type) {
     throw new Error(

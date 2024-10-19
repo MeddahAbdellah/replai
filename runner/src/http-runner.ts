@@ -1,27 +1,32 @@
-import { Message, ReadonlyDatabase } from "../../database/index.js";
+import {
+  Message,
+  messageType,
+  ReadonlyDatabase,
+} from "../../database/index.js";
 import { toolsWithContext, ToolNotFoundError } from "../../tools/index.js";
 import express from "express";
 import { z } from "zod";
 import cors from "cors";
 import { Runner } from "../model/index.js";
 import {
-  lcToDbMessage,
+  toLcMessage,
+  lcToMessage,
   lcHumanMessageToParameterizedMessage,
 } from "../../langchain/index.js";
 
 export function httpRunner<R = unknown, M = unknown>(config: {
   port: number;
   corsOptions?: cors.CorsOptions;
-  messageParameterizationFn?: (
-    parameters: Record<string, string>,
-  ) => (message: M) => M;
-  messageToDbMessageFn?: (message: M) => Omit<Message, "runId">;
+  toParameterized?: (parameters: Record<string, string>) => (message: M) => M;
+  toMessage?: (message: M) => Omit<Message, "id" | "runId">;
+  toAgentMessage?: (message: Omit<Message, "id" | "runId">) => M;
 }): Runner<R, M> {
   const {
     port,
     corsOptions = { origin: "*" },
-    messageParameterizationFn = lcHumanMessageToParameterizedMessage,
-    messageToDbMessageFn = lcToDbMessage,
+    toParameterized = lcHumanMessageToParameterizedMessage,
+    toMessage = lcToMessage,
+    toAgentMessage = toLcMessage,
   } = config;
   return async (params) => {
     const {
@@ -38,31 +43,67 @@ export function httpRunner<R = unknown, M = unknown>(config: {
     app.post("/replay", handleReplayRequest(tools, database));
 
     app.post("/runs", async (req, res) => {
-      const { parameters } = req.body;
-      const parameterizedMessages = messagesFromConfig.map(
-        messageParameterizationFn(parameters),
-      );
+      const { parameters, replayMessages, toolsOnly, includeConfigMessages } =
+        req.body;
+      // TODO: if replayMessages are not provided, includeConfigMessages must be true, add zod for that
+      const parameterizedConfigMessages = messagesFromConfig
+        .map(toParameterized(parameters))
+        .map(toMessage);
+      const configMessages = includeConfigMessages
+        ? parameterizedConfigMessages
+        : [];
+      const messages: Omit<Message, "id" | "runId">[] = replayMessages
+        ? [
+            ...configMessages,
+            ...(replayMessages as Omit<Message, "id" | "runId">[]),
+          ]
+        : configMessages;
       const { runId } = await database.createRun();
-      await database.insertMessages(
-        runId,
-        parameterizedMessages.map(messageToDbMessageFn),
-      );
-      const replayCallback = await replayCallbackFactory({ database, runId });
+      debugger;
+      await database.insertMessages(runId, messages);
       await database.updateRunStatus(runId, "running");
       const run = await database.getRun(runId);
       res.json(run);
-      const result = await agentInvoke({
-        messages: parameterizedMessages,
-        replayCallback,
-      });
-      await database.updateRunStatus(runId, "done");
-      if (
-        result &&
-        typeof result === "object" &&
-        "status" in result &&
-        typeof result.status === "string"
-      ) {
-        await database.updateRunTaskStatus(runId, result.status);
+
+      const messagesWithToolCalls = messages.filter(
+        (message) => message.toolCalls && message.toolCalls.length > 0,
+      );
+
+      try {
+        for (let toolCallMessage of messagesWithToolCalls) {
+          if (!toolCallMessage.toolCalls) {
+            continue;
+          }
+          await executeTools(toolCallMessage.toolCalls, tools);
+        }
+
+        let result;
+        if (!toolsOnly) {
+          const agentMessages = messages.map(
+            (message) => toAgentMessage(message) as M,
+          );
+          const replayCallback = await replayCallbackFactory({
+            database,
+            runId,
+          });
+          result = await agentInvoke({
+            messages: agentMessages,
+            replayCallback,
+          });
+        }
+        await database.updateRunStatus(runId, "done");
+        if (
+          result &&
+          typeof result === "object" &&
+          "status" in result &&
+          typeof result.status === "string"
+        ) {
+          await database.updateRunTaskStatus(runId, result.status);
+        }
+      } catch (error) {
+        console.error(error);
+        await database.updateRunStatus(runId, "failed");
+        await database.updateRunTaskStatus(runId, "failed");
       }
     });
 

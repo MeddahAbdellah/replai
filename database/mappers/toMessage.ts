@@ -3,6 +3,7 @@ import { Message } from "../model/index.js";
 
 export function toMessage(message: DbMessage): Message {
   return {
+    id: message.id,
     runId: message.run_id.toString(),
     type: message.type,
     content:

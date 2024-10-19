@@ -33,6 +33,7 @@
   },
   "homepage": "https://github.com/yourusername/langreplay#readme",
   "dependencies": {
+    "@langchain/core": "^0.3.13",
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "pupa": "^3.1.0",

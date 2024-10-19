@@ -42,6 +42,7 @@ export interface Run {
 }
 
 export const messageSchema = z.object({
+  id: z.string(),
   runId: z.string(),
   type: z.enum(Object.values(messageType) as [string, ...string[]]),
   content: z.union([
@@ -91,6 +92,6 @@ export interface Database extends ReadonlyDatabase {
   updateRunTaskStatus: (runId: string, taskStatus: string) => Promise<Run>;
   insertMessages: (
     runId: string,
-    messages: Omit<Message, "runId">[],
+    messages: Omit<Message, "id" | "runId">[],
   ) => Promise<{ messageIds: string[] }>;
 }

@@ -14,8 +14,9 @@
 - Remove unnecessary dependencies ✅
 - Isolate library specific code ✅
 - Improve UI again ✅
-- Replay messages with modifications
+- Replay messages with modifications ✅
 - Add pagination
+- Finish frontend
 - Make a RabbitMQ runner
 - Make a Postgresql Database
 - Make a tool bank
