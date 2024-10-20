@@ -42,10 +42,59 @@ export async function sqlite(
   `);
 
   return {
-    getAllRuns: async () => {
-      return db
-        .all("SELECT * FROM runs")
-        .then((runs: DbRun[]) => runs.map(toRun));
+    getRuns: async (
+      limit: number,
+      offset: number,
+      order: "asc" | "desc" = "desc",
+      filters?: { status?: string; task_status?: string },
+    ) => {
+      let query = "SELECT * FROM runs";
+      const params: (number | string)[] = [];
+
+      if (filters) {
+        const whereConditions: string[] = [];
+        if (filters.status) {
+          whereConditions.push("status = ?");
+          params.push(filters.status);
+        }
+        if (filters.task_status) {
+          whereConditions.push("task_status = ?");
+          params.push(filters.task_status);
+        }
+        if (whereConditions.length > 0) {
+          query += " WHERE " + whereConditions.join(" AND ");
+        }
+      }
+
+      query += ` ORDER BY timestamp ${order === "asc" ? "ASC" : "DESC"} LIMIT ? OFFSET ?`;
+      params.push(limit, offset);
+
+      return db.all(query, ...params).then((runs: DbRun[]) => runs.map(toRun));
+    },
+    getRunsCount: async (filters?: {
+      status?: string;
+      task_status?: string;
+    }) => {
+      let query = "SELECT COUNT(*) as count FROM runs";
+      const params: string[] = [];
+
+      if (filters) {
+        const whereConditions: string[] = [];
+        if (filters.status) {
+          whereConditions.push("status = ?");
+          params.push(filters.status);
+        }
+        if (filters.task_status) {
+          whereConditions.push("task_status = ?");
+          params.push(filters.task_status);
+        }
+        if (whereConditions.length > 0) {
+          query += " WHERE " + whereConditions.join(" AND ");
+        }
+      }
+
+      const count = (await db.get(query, ...params)) as { count: number };
+      return count.count;
     },
     getRun: async (runId: string) => {
       const run = (await db.get(

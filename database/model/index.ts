@@ -75,7 +75,16 @@ export const messageSchema = z.object({
 export type Message = z.infer<typeof messageSchema>;
 
 export interface ReadonlyDatabase {
-  getAllRuns: () => Promise<Run[]>;
+  getRuns: (
+    limit: number,
+    offset: number,
+    order: "asc" | "desc",
+    filters?: { status?: string; task_status?: string },
+  ) => Promise<Run[]>;
+  getRunsCount: (filters?: {
+    status?: string;
+    task_status?: string;
+  }) => Promise<number>;
   getRun: (runId: string) => Promise<Run>;
   getAllMessages: (runId: string) => Promise<Message[]>;
   getMessage: (runId: string, messageId: string) => Promise<Message>;

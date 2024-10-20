@@ -111,10 +111,35 @@ export function httpRunner<R = unknown, M = unknown>(config: {
       res.json({ status: "ok" });
     });
 
-    app.get("/runs", async (_req, res) => {
+    app.get("/runs", async (req, res) => {
       try {
-        const runs = await database.getAllRuns();
-        res.json(runs);
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const offset = (page - 1) * limit;
+        const order = (req.query.order as string) === "asc" ? "asc" : "desc";
+        const filters: { status?: string; task_status?: string } = {
+          ...(req.query.status ? { status: req.query.status as string } : {}),
+          ...(req.query.taskStatus
+            ? { task_status: req.query.taskStatus as string }
+            : {}),
+        };
+
+        const [runs, totalCount] = await Promise.all([
+          database.getRuns(limit, offset, order, filters),
+          database.getRunsCount(filters),
+        ]);
+
+        const totalPages = Math.ceil(totalCount / limit);
+
+        res.json({
+          runs,
+          pagination: {
+            currentPage: page,
+            totalPages,
+            totalCount,
+            limit,
+          },
+        });
       } catch (error) {
         console.error(error);
         res.status(500).json({
