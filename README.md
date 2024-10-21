@@ -16,8 +16,10 @@
 - Improve UI again ✅
 - Replay messages with modifications ✅
 - Add pagination ✅
-- Make a RabbitMQ runner
-- Make a Postgresql Database
+- Make a RabbitMQ runner ✅
+- Make a Postgresql Database ✅
+- Test distributed system with RabbitMQ
+- Test Postgresql Database
 - Batch processing with many parameters
 - Enable adding a backend for agents on the frontend.
 - Refactor agents page to use correct querying

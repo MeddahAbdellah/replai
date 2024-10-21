@@ -1,8 +1,7 @@
-import sqlite3 from "sqlite3";
-import { open } from "sqlite";
+import { Pool } from "pg";
 import {
   Database,
-  SqliteDatabaseConfig,
+  PostgresqlDatabaseConfig,
   DbMessage,
   DbRun,
   Message,
@@ -12,34 +11,37 @@ import { toMessage } from "../mappers/toMessage.js";
 import { toRun } from "../mappers/toRun.js";
 import { toDbMessage } from "../mappers/toDbMessage.js";
 
-export async function sqlite(
-  config?: Partial<SqliteDatabaseConfig>,
+export async function postgresql(
+  config: Partial<PostgresqlDatabaseConfig>,
 ): Promise<Database> {
-  const db = await open({
-    filename: config?.filename || "./.database/replay.db",
-    driver: config?.driver || sqlite3.Database,
+  const pool = new Pool({
+    connectionString: config.connectionString,
   });
 
-  await db.exec(`
+  const client = await pool.connect();
+
+  await client.query(`
     CREATE TABLE IF NOT EXISTS runs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       status TEXT NOT NULL,
       task_status TEXT NOT NULL,
-      timestamp INTEGER NOT NULL
+      timestamp BIGINT NOT NULL
     )
   `);
 
-  await db.exec(`
+  await client.query(`
     CREATE TABLE IF NOT EXISTS messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       run_id INTEGER NOT NULL,
       type TEXT NOT NULL,
       content TEXT,
       tool_calls TEXT,
-      timestamp INTEGER NOT NULL,
+      timestamp BIGINT NOT NULL,
       FOREIGN KEY (run_id) REFERENCES runs(id)
     )
   `);
+
+  client.release();
 
   return {
     getRuns: async (
@@ -54,11 +56,11 @@ export async function sqlite(
       if (filters) {
         const whereConditions: string[] = [];
         if (filters.status) {
-          whereConditions.push("status = ?");
+          whereConditions.push("status = $1");
           params.push(filters.status);
         }
         if (filters.task_status) {
-          whereConditions.push("task_status = ?");
+          whereConditions.push("task_status = $2");
           params.push(filters.task_status);
         }
         if (whereConditions.length > 0) {
@@ -66,10 +68,11 @@ export async function sqlite(
         }
       }
 
-      query += ` ORDER BY timestamp ${order === "asc" ? "ASC" : "DESC"} LIMIT ? OFFSET ?`;
+      query += ` ORDER BY timestamp ${order === "asc" ? "ASC" : "DESC"} LIMIT $3 OFFSET $4`;
       params.push(limit, offset);
 
-      return db.all(query, ...params).then((runs: DbRun[]) => runs.map(toRun));
+      const result = await pool.query(query, params);
+      return result.rows.map(toRun);
     },
     getRunsCount: async (filters?: {
       status?: string;
@@ -81,11 +84,11 @@ export async function sqlite(
       if (filters) {
         const whereConditions: string[] = [];
         if (filters.status) {
-          whereConditions.push("status = ?");
+          whereConditions.push("status = $1");
           params.push(filters.status);
         }
         if (filters.task_status) {
-          whereConditions.push("task_status = ?");
+          whereConditions.push("task_status = $2");
           params.push(filters.task_status);
         }
         if (whereConditions.length > 0) {
@@ -93,74 +96,69 @@ export async function sqlite(
         }
       }
 
-      const count = (await db.get(query, ...params)) as { count: number };
-      return count.count;
+      const result = await pool.query(query, params);
+      return parseInt(result.rows[0].count, 10);
     },
     getRun: async (runId: string) => {
-      const run = (await db.get(
-        "SELECT * FROM runs WHERE id = ?",
+      const result = await pool.query("SELECT * FROM runs WHERE id = $1", [
         runId,
-      )) as DbRun;
+      ]);
+      const run = result.rows[0] as DbRun;
       if (!run) {
         throw new Error("Run not found");
       }
       return toRun(run);
     },
     getAllMessages: async (runId: string) =>
-      db
-        .all(
-          "SELECT * FROM messages WHERE run_id = ? ORDER BY timestamp ASC",
-          runId,
+      pool
+        .query(
+          "SELECT * FROM messages WHERE run_id = $1 ORDER BY timestamp ASC",
+          [runId],
         )
-        .then((messages: DbMessage[]) => messages.map(toMessage)),
+        .then((result) => result.rows.map(toMessage)),
     getMessage: async (runId: string, messageId: string) => {
-      const message = (await db.get(
-        "SELECT * FROM messages WHERE run_id = ? AND id = ?",
-        runId,
-        messageId,
-      )) as DbMessage;
+      const result = await pool.query(
+        "SELECT * FROM messages WHERE run_id = $1 AND id = $2",
+        [runId, messageId],
+      );
+      const message = result.rows[0] as DbMessage;
       if (!message) {
         throw new Error("Message not found");
       }
       return toMessage(message);
     },
     createRun: async () => {
-      const runInsert = await db.run(
-        "INSERT INTO runs (status, task_status, timestamp) VALUES (?, ?, ?)",
-        "scheduled",
-        "unknown",
-        Date.now(),
+      const result = await pool.query(
+        "INSERT INTO runs (status, task_status, timestamp) VALUES ($1, $2, $3) RETURNING id",
+        ["scheduled", "unknown", Date.now()],
       );
-      if (!runInsert.lastID) {
+      const runId = result.rows[0].id;
+      if (!runId) {
         throw new Error("Failed to create run");
       }
-      return { runId: runInsert.lastID.toString() };
+      return { runId: runId.toString() };
     },
     updateRunStatus: async (runId, status) => {
-      const run = (await db.get(
-        "SELECT * FROM runs WHERE id = ?",
-        runId,
-      )) as DbRun;
+      const result = await pool.query(
+        "UPDATE runs SET status = $1 WHERE id = $2 RETURNING *",
+        [status, runId],
+      );
+      const run = result.rows[0] as DbRun;
       if (!run) {
         throw new Error("Run not found");
       }
-      await db.run("UPDATE runs SET status = ? WHERE id = ?", status, runId);
-      return toRun({ ...run, status } as DbRun);
+      return toRun(run);
     },
     updateRunTaskStatus: async (runId, taskStatus) => {
-      const run = (await db.get(
-        "SELECT * FROM runs WHERE id = ?",
-        runId,
-      )) as DbRun;
+      const result = await pool.query(
+        "UPDATE runs SET task_status = $1 WHERE id = $2 RETURNING *",
+        [taskStatus, runId],
+      );
+      const run = result.rows[0] as DbRun;
       if (!run) {
         throw new Error("Run not found");
       }
-      await db.run(
-        "UPDATE runs SET task_status = ? WHERE id = ?",
-        taskStatus,
-        runId,
-      );
-      return toRun({ ...run, taskStatus } as DbRun);
+      return toRun(run);
     },
     insertMessages: async (
       runId: string,
@@ -179,32 +177,34 @@ export async function sqlite(
         .map(toDbMessage);
 
       const messageIds: string[] = [];
+      const client = await pool.connect();
       try {
-        await db.run("BEGIN TRANSACTION");
+        await client.query("BEGIN");
 
-        const stmt = await db.prepare(
-          "INSERT INTO messages (run_id, type, content, tool_calls, timestamp) VALUES (?, ?, ?, ?, ?)",
-        );
         for (const message of validatedMessages) {
-          const result = await stmt.run(
-            runId,
-            message.type,
-            message.content,
-            "tool_calls" in message && message.tool_calls
-              ? message.tool_calls
-              : "",
-            Date.now(),
+          const result = await client.query(
+            "INSERT INTO messages (run_id, type, content, tool_calls, timestamp) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+            [
+              runId,
+              message.type,
+              message.content,
+              "tool_calls" in message && message.tool_calls
+                ? message.tool_calls
+                : "",
+              Date.now(),
+            ],
           );
-          if (result.lastID) {
-            messageIds.push(result.lastID.toString());
+          if (result.rows[0].id) {
+            messageIds.push(result.rows[0].id.toString());
           }
         }
-        await stmt.finalize();
-        await db.run("COMMIT");
+        await client.query("COMMIT");
         return { messageIds };
       } catch (error) {
-        await db.run("ROLLBACK");
+        await client.query("ROLLBACK");
         throw error;
+      } finally {
+        client.release();
       }
     },
   };

@@ -90,11 +90,6 @@ export interface ReadonlyDatabase {
   getMessage: (runId: string, messageId: string) => Promise<Message>;
 }
 
-export interface DatabaseConfig {
-  filename: string;
-  driver: keyof typeof sqlite3;
-}
-
 export interface Database extends ReadonlyDatabase {
   createRun: () => Promise<{ runId: string }>;
   updateRunStatus: (runId: string, status: RunStatus) => Promise<Run>;
@@ -103,4 +98,13 @@ export interface Database extends ReadonlyDatabase {
     runId: string,
     messages: Omit<Message, "id" | "runId">[],
   ) => Promise<{ messageIds: string[] }>;
+}
+
+export interface SqliteDatabaseConfig {
+  filename: string;
+  driver: keyof typeof sqlite3;
+}
+
+export interface PostgresqlDatabaseConfig {
+  connectionString: string;
 }
