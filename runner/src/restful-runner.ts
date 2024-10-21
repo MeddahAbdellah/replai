@@ -1,11 +1,5 @@
-import {
-  Message,
-  messageType,
-  ReadonlyDatabase,
-} from "../../database/index.js";
-import { toolsWithContext, ToolNotFoundError } from "../../tools/index.js";
+import { Message } from "../../database/index.js";
 import express from "express";
-import { z } from "zod";
 import cors from "cors";
 import { Runner } from "../model/index.js";
 import {
@@ -13,10 +7,16 @@ import {
   lcToMessage,
   lcHumanMessageToParameterizedMessage,
 } from "../../langchain/index.js";
+import { processRun } from "../routines/run.js";
 
-export function httpRunner<R = unknown, M = unknown>(config: {
+export function restfulRunner<R = unknown, M = unknown>(config: {
   port: number;
   corsOptions?: cors.CorsOptions;
+  processor?: (params: {
+    runId: string;
+    messages: Omit<Message, "id" | "runId">[];
+    toolsOnly: boolean;
+  }) => Promise<void>;
   toParameterized?: (parameters: Record<string, string>) => (message: M) => M;
   toMessage?: (message: M) => Omit<Message, "id" | "runId">;
   toAgentMessage?: (message: Omit<Message, "id" | "runId">) => M;
@@ -26,7 +26,9 @@ export function httpRunner<R = unknown, M = unknown>(config: {
     corsOptions = { origin: "*" },
     toParameterized = lcHumanMessageToParameterizedMessage,
     toMessage = lcToMessage,
-    toAgentMessage = toLcMessage,
+    toAgentMessage = toLcMessage as (
+      message: Omit<Message, "id" | "runId">,
+    ) => M,
   } = config;
   return async (params) => {
     const {
@@ -40,12 +42,9 @@ export function httpRunner<R = unknown, M = unknown>(config: {
     app.use(express.json());
     app.use(cors(corsOptions));
 
-    app.post("/replay", handleReplayRequest(tools, database));
-
     app.post("/runs", async (req, res) => {
       const { parameters, replayMessages, toolsOnly, includeConfigMessages } =
         req.body;
-      // TODO: if replayMessages are not provided, includeConfigMessages must be true, add zod for that
       const parameterizedConfigMessages = messagesFromConfig
         .map(toParameterized(parameters))
         .map(toMessage);
@@ -61,44 +60,23 @@ export function httpRunner<R = unknown, M = unknown>(config: {
       const { runId } = await database.createRun();
       debugger;
       await database.insertMessages(runId, messages);
-      await database.updateRunStatus(runId, "running");
       const run = await database.getRun(runId);
       res.json(run);
 
-      const messagesWithToolCalls = messages.filter(
-        (message) => message.toolCalls && message.toolCalls.length > 0,
-      );
-
       try {
-        for (let toolCallMessage of messagesWithToolCalls) {
-          if (!toolCallMessage.toolCalls) {
-            continue;
-          }
-          await executeTools(toolCallMessage.toolCalls, tools);
-        }
-
-        let result;
-        if (!toolsOnly) {
-          const agentMessages = messages.map(
-            (message) => toAgentMessage(message) as M,
-          );
-          const replayCallback = await replayCallbackFactory({
-            database,
+        if (config.processor) {
+          await config.processor({ runId, messages, toolsOnly });
+        } else {
+          await processRun<M, R>({
             runId,
+            messages,
+            toolsOnly,
+            database,
+            tools,
+            agentInvoke,
+            toAgentMessage,
+            replayCallbackFactory,
           });
-          result = await agentInvoke({
-            messages: agentMessages,
-            replayCallback,
-          });
-        }
-        await database.updateRunStatus(runId, "done");
-        if (
-          result &&
-          typeof result === "object" &&
-          "status" in result &&
-          typeof result.status === "string"
-        ) {
-          await database.updateRunTaskStatus(runId, result.status);
         }
       } catch (error) {
         console.error(error);
@@ -209,82 +187,4 @@ export function httpRunner<R = unknown, M = unknown>(config: {
       console.log(`LangReplay runner listening on port ${port}`);
     });
   };
-}
-
-function handleReplayRequest(
-  tools: ReturnType<typeof toolsWithContext>,
-  database: ReadonlyDatabase,
-) {
-  return async (req: express.Request, res: express.Response) => {
-    const { runId, messageId } = req.body;
-    if (!runId) {
-      res.status(400).json({ error: "runId is required" });
-      return;
-    }
-
-    if (!messageId) {
-      res.status(400).json({ error: "messageId is required" });
-      return;
-    }
-
-    try {
-      const message = await database.getMessage(runId, messageId);
-
-      if (!message.toolCalls) {
-        res
-          .status(400)
-          .json({ error: "No tools to execute", details: message });
-        return;
-      }
-
-      const results = await executeTools(message.toolCalls, tools);
-      res.json({ results });
-      return;
-    } catch (error) {
-      if (error instanceof ToolNotFoundError) {
-        res
-          .status(400)
-          .json({ error: "Tool Not found", details: error.message });
-        return;
-      } else if (error instanceof z.ZodError) {
-        res
-          .status(400)
-          .json({ error: "Invalid message format", details: error.errors });
-        return;
-      } else {
-        res.status(500).json({ error: "Internal server error" });
-        return;
-      }
-    }
-  };
-}
-
-async function executeTools(
-  toolCalls: NonNullable<Message["toolCalls"]>,
-  tools: ReturnType<typeof toolsWithContext>,
-) {
-  const results = [];
-  for (const toolCall of toolCalls) {
-    const result = await executeSingleTool(toolCall, tools);
-    results.push(result);
-  }
-  return results;
-}
-
-async function executeSingleTool(
-  toolCall: NonNullable<Message["toolCalls"]>[0],
-  tools: ReturnType<typeof toolsWithContext>,
-) {
-  const tool = tools.find((t: any) => t.name === toolCall.name);
-  if (!tool || !tool.func) {
-    throw new ToolNotFoundError(toolCall.name, tools);
-  }
-  try {
-    const result = await tool.invoke(
-      toolCall.args.input as Record<string, unknown>,
-    );
-    return { toolCallName: toolCall.name, result };
-  } catch (error) {
-    throw error;
-  }
 }

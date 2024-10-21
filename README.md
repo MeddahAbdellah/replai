@@ -15,10 +15,13 @@
 - Isolate library specific code ✅
 - Improve UI again ✅
 - Replay messages with modifications ✅
-- Add pagination
-- Finish frontend
+- Add pagination ✅
 - Make a RabbitMQ runner
 - Make a Postgresql Database
+- Batch processing with many parameters
+- Enable adding a backend for agents on the frontend.
+- Refactor agents page to use correct querying
+- Create the clicking tool
 - Make a tool bank
 - Enable creating agents
 
