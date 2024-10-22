@@ -8,7 +8,7 @@ export async function amqpPublisher(config: {
     runId: string;
     messages: Omit<Message, "id" | "runId">[];
     toolsOnly: boolean;
-  }) => void
+  }) => Promise<void>
 > {
   const { amqpUrl, queue } = config;
   const connection = await amqp.connect(amqpUrl);
