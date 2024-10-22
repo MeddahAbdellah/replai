@@ -58,7 +58,6 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
           ]
         : configMessages;
       const { runId } = await database.createRun();
-      debugger;
       await database.insertMessages(runId, messages);
       const run = await database.getRun(runId);
       res.json(run);
@@ -82,6 +81,66 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
         console.error(error);
         await database.updateRunStatus(runId, "failed");
         await database.updateRunTaskStatus(runId, "failed");
+      }
+    });
+
+    app.post("/runs/batch", async (req, res) => {
+      const { parameters, toolsOnly } = req.body as {
+        parameters: Record<string, string>[];
+        toolsOnly: boolean;
+      };
+
+      const messagesBatches = parameters.map(
+        (parameters) =>
+          messagesFromConfig?.map(toParameterized(parameters)).map(toMessage) ||
+          [],
+      );
+
+      const createdRunsIds = await Promise.all(
+        messagesBatches.map(async (messages) => {
+          const { runId } = await database.createRun();
+          await database.insertMessages(runId, messages);
+          return runId;
+        }),
+      );
+
+      res.json(createdRunsIds);
+
+      if (config.processor) {
+        for (const [index, messages] of messagesBatches.entries()) {
+          const runId = createdRunsIds[index];
+          try {
+            await config.processor({
+              runId,
+              messages,
+              toolsOnly,
+            });
+          } catch (error) {
+            console.error(error);
+            await database.updateRunStatus(runId, "failed");
+            await database.updateRunTaskStatus(runId, "failed");
+          }
+        }
+      } else {
+        for (const [index, messages] of messagesBatches.entries()) {
+          const runId = createdRunsIds[index];
+          try {
+            await processRun<M, R>({
+              runId,
+              messages,
+              toolsOnly,
+              database,
+              tools,
+              agentInvoke,
+              toAgentMessage,
+              replayCallbackFactory,
+            });
+          } catch (error) {
+            console.error(error);
+            await database.updateRunStatus(runId, "failed");
+            await database.updateRunTaskStatus(runId, "failed");
+          }
+        }
       }
     });
 
