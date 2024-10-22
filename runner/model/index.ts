@@ -10,7 +10,7 @@ export type Runner<R, M> = (params: {
   tools: ReturnType<typeof toolsWithContext>;
   database: Database;
   agentInvoke: (params: AgentInvokeParams<M>) => Promise<R>;
-  messages: M[];
+  messages?: M[];
   replayCallbackFactory: (config: {
     database: Database;
     runId: string;

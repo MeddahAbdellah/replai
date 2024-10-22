@@ -16,7 +16,7 @@ export async function localSpawner<
   database: Database;
   agentInvokeFactory: AgentInvokeFactory;
   runner: Runner<R, M>;
-  messages: M[];
+  messages?: M[];
   replayCallbackFactory?: (config: {
     database: Database;
     runId: string;

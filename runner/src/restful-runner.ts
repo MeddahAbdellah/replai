@@ -45,7 +45,7 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
     app.post("/runs", async (req, res) => {
       const { parameters, replayMessages, toolsOnly, includeConfigMessages } =
         req.body;
-      const parameterizedConfigMessages = messagesFromConfig
+      const parameterizedConfigMessages = (messagesFromConfig || [])
         .map(toParameterized(parameters))
         .map(toMessage);
       const configMessages = includeConfigMessages
