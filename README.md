@@ -18,14 +18,14 @@
 - Add pagination ✅
 - Make a RabbitMQ runner ✅
 - Make a Postgresql Database ✅
-- Test distributed system with RabbitMQ
-- Test Postgresql Database
+- Test distributed system with RabbitMQ ✅
+- Test Postgresql Database ✅
 - Batch processing with many parameters
-- Enable adding a backend for agents on the frontend.
+- Add logger and logging everywhere
 - Refactor agents page to use correct querying
-- Create the clicking tool
-- Make a tool bank
-- Enable creating agents
+- Add basic tools (Open browser, navigate to url, click on something with text, click on id, write something, take a screenshot, make an excel tool that executes VBA)
+- Enable adding a backend for agents on the frontend.
+- Enable creating agents from interface
 
 ---
 

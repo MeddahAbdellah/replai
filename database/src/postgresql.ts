@@ -1,4 +1,4 @@
-import { Pool } from "pg";
+import pg from "pg";
 import {
   Database,
   PostgresqlDatabaseConfig,
@@ -14,7 +14,7 @@ import { toDbMessage } from "../mappers/toDbMessage.js";
 export async function postgresql(
   config: Partial<PostgresqlDatabaseConfig>,
 ): Promise<Database> {
-  const pool = new Pool({
+  const pool = new pg.Pool({
     connectionString: config.connectionString,
   });
 
@@ -51,24 +51,26 @@ export async function postgresql(
       filters?: { status?: string; task_status?: string },
     ) => {
       let query = "SELECT * FROM runs";
-      const params: (number | string)[] = [];
+      const params = [];
+      let paramIndex = 1; // Start index for parameter placeholders
 
       if (filters) {
-        const whereConditions: string[] = [];
+        const whereConditions = [];
         if (filters.status) {
-          whereConditions.push("status = $1");
+          whereConditions.push(`status = $${paramIndex}`);
           params.push(filters.status);
+          paramIndex++;
         }
         if (filters.task_status) {
-          whereConditions.push("task_status = $2");
+          whereConditions.push(`task_status = $${paramIndex}`);
           params.push(filters.task_status);
+          paramIndex++;
         }
         if (whereConditions.length > 0) {
           query += " WHERE " + whereConditions.join(" AND ");
         }
       }
-
-      query += ` ORDER BY timestamp ${order === "asc" ? "ASC" : "DESC"} LIMIT $3 OFFSET $4`;
+      query += ` ORDER BY timestamp ${order === "asc" ? "ASC" : "DESC"} LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       params.push(limit, offset);
 
       const result = await pool.query(query, params);
@@ -79,17 +81,20 @@ export async function postgresql(
       task_status?: string;
     }) => {
       let query = "SELECT COUNT(*) as count FROM runs";
-      const params: string[] = [];
+      const params = [];
+      let paramIndex = 1;
 
       if (filters) {
-        const whereConditions: string[] = [];
+        const whereConditions = [];
         if (filters.status) {
-          whereConditions.push("status = $1");
+          whereConditions.push(`status = $${paramIndex}`);
           params.push(filters.status);
+          paramIndex++;
         }
         if (filters.task_status) {
-          whereConditions.push("task_status = $2");
+          whereConditions.push(`task_status = $${paramIndex}`);
           params.push(filters.task_status);
+          paramIndex++;
         }
         if (whereConditions.length > 0) {
           query += " WHERE " + whereConditions.join(" AND ");

@@ -30,6 +30,7 @@ export function amqpRunner<R = unknown, M = unknown>(config: {
       channel.consume(queue, async (msg) => {
         if (msg !== null) {
           const content = JSON.parse(msg.content.toString());
+          console.log("Received: ", content);
           const { runId, messages, toolsOnly } = content as {
             runId: string;
             messages: Omit<Message, "id" | "runId">[];
