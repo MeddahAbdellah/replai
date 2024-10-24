@@ -3,11 +3,13 @@ import { Runner } from "../model/index.js";
 import { toLcMessage } from "../../langchain/index.js";
 import { Message } from "../../database/index.js";
 import { processRun } from "../routines/run.js";
+import { Logger } from "../../logger/model/index.js";
 
 export function amqpRunner<R = unknown, M = unknown>(config: {
   amqpUrl: string;
   queue: string;
   toAgentMessage?: (message: Omit<Message, "id" | "runId">) => M;
+  logger?: Logger;
 }): Runner<R, M> {
   const {
     amqpUrl,
@@ -15,6 +17,7 @@ export function amqpRunner<R = unknown, M = unknown>(config: {
     toAgentMessage = toLcMessage as (
       message: Omit<Message, "id" | "runId">,
     ) => M,
+    logger,
   } = config;
 
   return async (params) => {
@@ -25,12 +28,12 @@ export function amqpRunner<R = unknown, M = unknown>(config: {
       const channel = await connection.createChannel();
       await channel.assertQueue(queue, { durable: true });
 
-      console.log(`Waiting for messages in ${queue}. To exit press CTRL+C`);
+      logger?.info(`Waiting for messages in ${queue}. To exit press CTRL+C`);
 
       channel.consume(queue, async (msg) => {
         if (msg !== null) {
           const content = JSON.parse(msg.content.toString());
-          console.log("Received: ", content);
+          logger?.info("Processing message", content);
           const { runId, messages, toolsOnly } = content as {
             runId: string;
             messages: Omit<Message, "id" | "runId">[];
@@ -47,8 +50,9 @@ export function amqpRunner<R = unknown, M = unknown>(config: {
               toAgentMessage,
               replayCallbackFactory,
             });
+            logger?.info("Run processed successfully ", runId);
           } catch (error) {
-            console.error(error);
+            logger?.error(error as Error);
             await database.updateRunStatus(runId, "failed");
             await database.updateRunTaskStatus(runId, "failed");
           }
@@ -57,7 +61,7 @@ export function amqpRunner<R = unknown, M = unknown>(config: {
         }
       });
     } catch (error) {
-      console.error("Failed to connect to RabbitMQ", error);
+      logger?.error(error as Error);
     }
   };
 }

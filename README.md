@@ -20,11 +20,15 @@
 - Make a Postgresql Database ✅
 - Test distributed system with RabbitMQ ✅
 - Test Postgresql Database ✅
-- Batch processing with many parameters
-- Add logger and logging everywhere
-- Refactor agents page to use correct querying
-- Add basic tools (Open browser, navigate to url, click on something with text, click on id, write something, take a screenshot, make an excel tool that executes VBA)
+- Batch processing with many parameters ✅
+- Adapt frontend for batch processing. ✅
+- Refactor agents page to use correct querying. ✅
+- Add logger and logging everywhere.
+- Bullet proof the code an test manually fully.
+- Bulletproof the typing.
+- Enable chaining agents.
 - Enable adding a backend for agents on the frontend.
+- Add basic tools (Open browser, navigate to url, click on something with text, click on id, write something, take a screenshot, make an excel tool that executes VBA, close browser)
 - Enable creating agents from interface
 
 ---

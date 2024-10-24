@@ -8,6 +8,7 @@ import {
   lcHumanMessageToParameterizedMessage,
 } from "../../langchain/index.js";
 import { processRun } from "../routines/run.js";
+import { Logger } from "../../logger/model/index.js";
 
 export function restfulRunner<R = unknown, M = unknown>(config: {
   port: number;
@@ -20,6 +21,7 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
   toParameterized?: (parameters: Record<string, string>) => (message: M) => M;
   toMessage?: (message: M) => Omit<Message, "id" | "runId">;
   toAgentMessage?: (message: Omit<Message, "id" | "runId">) => M;
+  logger?: Logger;
 }): Runner<R, M> {
   const {
     port,
@@ -29,6 +31,7 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
     toAgentMessage = toLcMessage as (
       message: Omit<Message, "id" | "runId">,
     ) => M,
+    logger,
   } = config;
   return async (params) => {
     const {
@@ -44,7 +47,13 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
 
     app.post("/runs", async (req, res) => {
       const { parameters, replayMessages, toolsOnly, includeConfigMessages } =
-        req.body;
+        req.body as {
+          parameters: Record<string, string>;
+          replayMessages: Omit<Message, "id" | "runId">[];
+          toolsOnly: boolean;
+          includeConfigMessages: boolean;
+        };
+      logger?.info("Received POST /runs request", req.body);
       const parameterizedConfigMessages = (messagesFromConfig || [])
         .map(toParameterized(parameters))
         .map(toMessage);
@@ -57,15 +66,19 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
             ...(replayMessages as Omit<Message, "id" | "runId">[]),
           ]
         : configMessages;
+      logger?.info("Preparing messages for a run ", messages);
       const { runId } = await database.createRun();
       await database.insertMessages(runId, messages);
       const run = await database.getRun(runId);
+      logger?.info("Run created", run.id);
       res.json(run);
 
       try {
         if (config.processor) {
           await config.processor({ runId, messages, toolsOnly });
+          logger?.info("Run processed by the processor", run.id);
         } else {
+          logger?.info("Processing run internally", run.id);
           await processRun<M, R>({
             runId,
             messages,
@@ -90,12 +103,15 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
         toolsOnly: boolean;
       };
 
+      logger?.info("Received POST /runs/batch request", req.body);
+
       const messagesBatches = parameters.map(
         (parameters) =>
           messagesFromConfig?.map(toParameterized(parameters)).map(toMessage) ||
           [],
       );
 
+      logger?.info("Preparing messages for a batch run ", messagesBatches);
       const createdRunsIds = await Promise.all(
         messagesBatches.map(async (messages) => {
           const { runId } = await database.createRun();
@@ -104,6 +120,7 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
         }),
       );
 
+      logger?.info("Runs created", createdRunsIds);
       res.json(createdRunsIds);
 
       if (config.processor) {
@@ -115,6 +132,7 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
               messages,
               toolsOnly,
             });
+            logger?.info("Run processed by the processor", runId);
           } catch (error) {
             console.error(error);
             await database.updateRunStatus(runId, "failed");
@@ -135,6 +153,7 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
               toAgentMessage,
               replayCallbackFactory,
             });
+            logger?.info("Run processed internally", runId);
           } catch (error) {
             console.error(error);
             await database.updateRunStatus(runId, "failed");
@@ -243,7 +262,7 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
     });
 
     app.listen(port, () => {
-      console.log(`LangReplay runner listening on port ${port}`);
+      logger?.info(`LangReplay runner listening on port ${port}`);
     });
   };
 }
