@@ -172,7 +172,7 @@ export async function postgresql(
       const validatedMessages = messages
         .map((message) => {
           const result = messageSchema
-            .omit({ id: true })
+            .omit({ id: true, timestamp: true })
             .safeParse({ runId, ...message });
           if (!result.success) {
             throw new Error(`Invalid message: ${result.error}`);

@@ -10,8 +10,8 @@ function isMessageType(type: string): type is MessageType {
 }
 
 export function toDbMessage(
-  message: Omit<Message, "id">,
-): Omit<DbMessage, "id"> {
+  message: Omit<Message, "id" | "timestamp">,
+): Omit<DbMessage, "id" | "timestamp"> {
   return {
     run_id: message.runId,
     content:
@@ -23,6 +23,5 @@ export function toDbMessage(
     tool_calls: message.toolCalls ? JSON.stringify(message.toolCalls) : null,
     // TODO: rethink the default type
     type: isMessageType(message.type) ? message.type : "AiMessage",
-    timestamp: message.timestamp,
   };
 }

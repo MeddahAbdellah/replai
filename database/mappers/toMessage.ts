@@ -1,17 +1,23 @@
 import { DbMessage } from "../index.js";
 import { Message } from "../model/index.js";
 
+function parseOrReturn<T>(value: string): T | string {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
 export function toMessage(message: DbMessage): Message {
   return {
     id: message.id,
     runId: message.run_id.toString(),
     type: message.type,
     content:
-      typeof message.content === "string"
-        ? message.content
-        : message.content !== null
-          ? JSON.parse(message.content)
-          : null,
+      message.content !== null
+        ? parseOrReturn<Message["content"]>(message.content)
+        : null,
     toolCalls:
       message.tool_calls &&
       JSON.parse(message.tool_calls) instanceof Array &&
