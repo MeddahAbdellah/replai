@@ -24,7 +24,8 @@
 - Adapt frontend for batch processing. ✅
 - Refactor agents page to use correct querying. ✅
 - Add logger and logging everywhere. ✅
-- Fix Langchain mappers.
+- Fix Langchain mappers. ✅
+- Add Task success validation. ✅
 - Bullet proof the code an test manually fully.
 - Bulletproof the typing.
 - Enable chaining agents.

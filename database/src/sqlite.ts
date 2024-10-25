@@ -25,6 +25,7 @@ export async function sqlite(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       status TEXT NOT NULL,
       task_status TEXT NOT NULL,
+      reason TEXT,
       timestamp INTEGER NOT NULL
     )
   `);
@@ -127,9 +128,10 @@ export async function sqlite(
     },
     createRun: async () => {
       const runInsert = await db.run(
-        "INSERT INTO runs (status, task_status, timestamp) VALUES (?, ?, ?)",
+        "INSERT INTO runs (status, task_status, timestamp) VALUES (?, ?, ?, ?)",
         "scheduled",
         "unknown",
+        "",
         Date.now(),
       );
       if (!runInsert.lastID) {
@@ -148,7 +150,7 @@ export async function sqlite(
       await db.run("UPDATE runs SET status = ? WHERE id = ?", status, runId);
       return toRun({ ...run, status } as DbRun);
     },
-    updateRunTaskStatus: async (runId, taskStatus) => {
+    updateRunTaskStatus: async (runId, taskStatus, reason) => {
       const run = (await db.get(
         "SELECT * FROM runs WHERE id = ?",
         runId,
@@ -157,8 +159,9 @@ export async function sqlite(
         throw new Error("Run not found");
       }
       await db.run(
-        "UPDATE runs SET task_status = ? WHERE id = ?",
+        "UPDATE runs SET task_status = ?, reason = ? WHERE id = ?",
         taskStatus,
+        reason,
         runId,
       );
       return toRun({ ...run, taskStatus } as DbRun);

@@ -25,6 +25,7 @@ export async function postgresql(
       id SERIAL PRIMARY KEY,
       status TEXT NOT NULL,
       task_status TEXT NOT NULL,
+      reason TEXT,
       timestamp BIGINT NOT NULL
     )
   `);
@@ -135,8 +136,8 @@ export async function postgresql(
     },
     createRun: async () => {
       const result = await pool.query(
-        "INSERT INTO runs (status, task_status, timestamp) VALUES ($1, $2, $3) RETURNING id",
-        ["scheduled", "unknown", Date.now()],
+        "INSERT INTO runs (status, task_status, reason, timestamp) VALUES ($1, $2, $3, $4) RETURNING id",
+        ["scheduled", "unknown", "", Date.now()],
       );
       const runId = result.rows[0].id;
       if (!runId) {
@@ -155,10 +156,10 @@ export async function postgresql(
       }
       return toRun(run);
     },
-    updateRunTaskStatus: async (runId, taskStatus) => {
+    updateRunTaskStatus: async (runId, taskStatus, reason) => {
       const result = await pool.query(
-        "UPDATE runs SET task_status = $1 WHERE id = $2 RETURNING *",
-        [taskStatus, runId],
+        "UPDATE runs SET task_status = $1, reason = $2 WHERE id = $3 RETURNING *",
+        [taskStatus, reason, runId],
       );
       const run = result.rows[0] as DbRun;
       if (!run) {

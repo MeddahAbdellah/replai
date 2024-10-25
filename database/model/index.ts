@@ -32,6 +32,7 @@ export interface DbRun {
   id: string;
   status: RunStatus;
   taskStatus: string;
+  reason: string | null;
   timestamp: string;
 }
 
@@ -39,6 +40,7 @@ export interface Run {
   id: string;
   status: RunStatus;
   taskStatus: string;
+  reason: string | null;
   timestamp: string;
 }
 
@@ -97,7 +99,11 @@ export interface ReadonlyDatabase {
 export interface Database extends ReadonlyDatabase {
   createRun: () => Promise<{ runId: string }>;
   updateRunStatus: (runId: string, status: RunStatus) => Promise<Run>;
-  updateRunTaskStatus: (runId: string, taskStatus: string) => Promise<Run>;
+  updateRunTaskStatus: (
+    runId: string,
+    taskStatus: string,
+    reason: string,
+  ) => Promise<Run>;
   insertMessages: (
     runId: string,
     messages: Omit<Message, "id" | "runId">[],

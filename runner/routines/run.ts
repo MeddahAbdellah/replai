@@ -1,6 +1,47 @@
 import { Database, Message } from "../../database/index.js";
 import { toolsWithContext, ToolNotFoundError } from "../../tools/index.js";
 import { AgentInvokeParams } from "../model/index.js";
+import z from "zod";
+// Define the schema for validation
+const taskStatusSchema = z.object({
+  taskStatus: z.string(),
+  reason: z.string(),
+});
+
+function extractTaskStatus(
+  messages: unknown[],
+): z.infer<typeof taskStatusSchema> {
+  return messages.reduce<z.infer<typeof taskStatusSchema>>(
+    (lastValid, message) => {
+      if (
+        typeof message === "object" &&
+        message !== null &&
+        "content" in message
+      ) {
+        const { content } = message;
+        if (typeof content !== "string") {
+          return lastValid;
+        }
+        const jsonMatch = content.match(/```json\s*({[\s\S]*?})\s*```/);
+        if (!jsonMatch) {
+          return lastValid;
+        }
+        try {
+          const parsedContent = JSON.parse(jsonMatch[1]);
+          const validationResult = taskStatusSchema.safeParse(parsedContent);
+          if (validationResult.success) {
+            return validationResult.data;
+          }
+        } catch (error) {}
+      }
+      return lastValid;
+    },
+    {
+      taskStatus: "unknown",
+      reason: "Ai didn't express a reason",
+    },
+  );
+}
 
 export async function processRun<M, R>(params: {
   runId: string;
@@ -37,7 +78,7 @@ export async function processRun<M, R>(params: {
     await executeTools(toolCallMessage.toolCalls, tools);
   }
 
-  let result;
+  let result: R | undefined = undefined;
   if (!toolsOnly) {
     const agentMessages = messages.map(
       (message) => toAgentMessage(message) as M,
@@ -51,15 +92,20 @@ export async function processRun<M, R>(params: {
       replayCallback,
     });
   }
-  await database.updateRunStatus(runId, "done");
-  if (
+  const taskStatus = extractTaskStatus(
     result &&
-    typeof result === "object" &&
-    "status" in result &&
-    typeof result.status === "string"
-  ) {
-    await database.updateRunTaskStatus(runId, result.status);
-  }
+      typeof result === "object" &&
+      "messages" in result &&
+      Array.isArray(result.messages)
+      ? result.messages
+      : [],
+  );
+  await database.updateRunStatus(runId, "done");
+  await database.updateRunTaskStatus(
+    runId,
+    taskStatus.taskStatus,
+    taskStatus.reason,
+  );
 }
 
 async function executeTools(

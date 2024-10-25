@@ -54,7 +54,11 @@ export function amqpRunner<R = unknown, M = unknown>(config: {
           } catch (error) {
             logger?.error(error as Error);
             await database.updateRunStatus(runId, "failed");
-            await database.updateRunTaskStatus(runId, "failed");
+            await database.updateRunTaskStatus(
+              runId,
+              "failed",
+              "Processing failed",
+            );
           }
 
           channel.ack(msg);

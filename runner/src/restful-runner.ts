@@ -93,7 +93,7 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
       } catch (error) {
         console.error(error);
         await database.updateRunStatus(runId, "failed");
-        await database.updateRunTaskStatus(runId, "failed");
+        await database.updateRunTaskStatus(runId, "failed", "Processing error");
       }
     });
 
@@ -136,7 +136,11 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
           } catch (error) {
             console.error(error);
             await database.updateRunStatus(runId, "failed");
-            await database.updateRunTaskStatus(runId, "failed");
+            await database.updateRunTaskStatus(
+              runId,
+              "failed",
+              "Processing error",
+            );
           }
         }
       } else {
@@ -157,7 +161,11 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
           } catch (error) {
             console.error(error);
             await database.updateRunStatus(runId, "failed");
-            await database.updateRunTaskStatus(runId, "failed");
+            await database.updateRunTaskStatus(
+              runId,
+              "failed",
+              "Processing error",
+            );
           }
         }
       }
