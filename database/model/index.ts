@@ -15,6 +15,7 @@ export interface DbMessage {
   type: MessageType;
   content: string | null;
   tool_calls: string | null;
+  tool_call_id: string | null;
   timestamp: number;
 }
 
@@ -45,6 +46,7 @@ export const messageSchema = z.object({
   id: z.string(),
   runId: z.string(),
   type: z.enum(Object.values(messageType) as [string, ...string[]]),
+  toolCallId: z.string().optional(),
   content: z.union([
     z.string(),
     z.array(
@@ -61,10 +63,12 @@ export const messageSchema = z.object({
   toolCalls: z.union([
     z.array(
       z.object({
+        id: z.string(),
         name: z.string(),
         args: z.object({
           input: z.union([z.string(), z.record(z.unknown())]),
         }),
+        type: z.literal("tool_call"),
       }),
     ),
     z.null(),

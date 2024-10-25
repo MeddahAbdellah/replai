@@ -24,6 +24,7 @@ export function toMessage(message: DbMessage): Message {
       JSON.parse(message.tool_calls).length > 0
         ? JSON.parse(message.tool_calls).map(
             (toolCall: NonNullable<Message["toolCalls"]>[0]) => ({
+              id: toolCall.id,
               name: toolCall.name,
               ...(toolCall.args.input !== undefined
                 ? {
@@ -32,9 +33,11 @@ export function toMessage(message: DbMessage): Message {
                     },
                   }
                 : {}),
+              type: toolCall.type as "tool_call",
             }),
           )
         : null,
+    toolCallId: message.tool_call_id || "",
     timestamp: message.timestamp,
   };
 }

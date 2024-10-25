@@ -21,6 +21,7 @@ export function toDbMessage(
           ? JSON.stringify(message.content)
           : null,
     tool_calls: message.toolCalls ? JSON.stringify(message.toolCalls) : null,
+    tool_call_id: message.toolCallId || null,
     // TODO: rethink the default type
     type: isMessageType(message.type) ? message.type : "AiMessage",
   };

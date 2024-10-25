@@ -22,6 +22,6 @@ export function toLcMessage(
 
   return new ToolMessage({
     content: message.content || "",
-    tool_call_id: crypto.randomUUID(),
+    tool_call_id: message.toolCallId || "",
   });
 }

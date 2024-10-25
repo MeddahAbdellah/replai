@@ -36,6 +36,7 @@ export async function sqlite(
       type TEXT NOT NULL,
       content TEXT,
       tool_calls TEXT,
+      tool_call_id TEXT,
       timestamp INTEGER NOT NULL,
       FOREIGN KEY (run_id) REFERENCES runs(id)
     )
@@ -183,7 +184,7 @@ export async function sqlite(
         await db.run("BEGIN TRANSACTION");
 
         const stmt = await db.prepare(
-          "INSERT INTO messages (run_id, type, content, tool_calls, timestamp) VALUES (?, ?, ?, ?, ?)",
+          "INSERT INTO messages (run_id, type, content, tool_calls, tool_call_id, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
         );
         for (const message of validatedMessages) {
           const result = await stmt.run(
@@ -193,6 +194,7 @@ export async function sqlite(
             "tool_calls" in message && message.tool_calls
               ? message.tool_calls
               : "",
+            message.tool_call_id,
             Date.now(),
           );
           if (result.lastID) {

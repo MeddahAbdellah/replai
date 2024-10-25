@@ -31,10 +31,14 @@ export function lcToMessage(message: unknown): Omit<Message, "id" | "runId"> {
     toolCalls:
       "tool_calls" in message && Array.isArray(message.tool_calls)
         ? message.tool_calls.map((toolCall: any) => ({
+            id: toolCall.id as string,
             name: toolCall.name as string,
             args: toolCall.args as { input: Record<string, any> },
+            type: "tool_call",
           }))
         : null,
+    toolCallId:
+      "tool_call_id" in message ? (message.tool_call_id as string) : "",
     timestamp: Date.now(),
   };
 }

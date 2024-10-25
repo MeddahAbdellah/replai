@@ -36,6 +36,7 @@ export async function postgresql(
       type TEXT NOT NULL,
       content TEXT,
       tool_calls TEXT,
+      tool_call_id TEXT,
       timestamp BIGINT NOT NULL,
       FOREIGN KEY (run_id) REFERENCES runs(id)
     )
@@ -188,7 +189,7 @@ export async function postgresql(
 
         for (const message of validatedMessages) {
           const result = await client.query(
-            "INSERT INTO messages (run_id, type, content, tool_calls, timestamp) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+            "INSERT INTO messages (run_id, type, content, tool_calls, tool_call_id, timestamp) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
             [
               runId,
               message.type,
@@ -196,6 +197,7 @@ export async function postgresql(
               "tool_calls" in message && message.tool_calls
                 ? message.tool_calls
                 : "",
+              message.tool_call_id,
               Date.now(),
             ],
           );

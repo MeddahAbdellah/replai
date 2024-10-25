@@ -23,7 +23,8 @@
 - Batch processing with many parameters ✅
 - Adapt frontend for batch processing. ✅
 - Refactor agents page to use correct querying. ✅
-- Add logger and logging everywhere.
+- Add logger and logging everywhere. ✅
+- Fix Langchain mappers.
 - Bullet proof the code an test manually fully.
 - Bulletproof the typing.
 - Enable chaining agents.
