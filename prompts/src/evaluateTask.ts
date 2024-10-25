@@ -13,7 +13,7 @@ you should output a message in the following format:
 
 \`\`\`json
 {
-"taskStatus": "success" | "failure" | "needHumanHelp",
+"taskStatus": "success" | "failed" | "needHumanHelp",
 "reason": "The issue you're facing"
 }
 \`\`\`
