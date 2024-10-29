@@ -26,15 +26,16 @@
 - Add logger and logging everywhere. ✅
 - Fix Langchain mappers. ✅
 - Add Task success validation. ✅
-- Bullet proof the code an test manually fully.
+- Bullet proof the code an test manually fully. ✅
+- Create a working example of form filler and maybe idea shopper
 - Bulletproof the typing.
 - Enable chaining agents.
 - Enable adding a backend for agents on the frontend.
 - Add basic tools (Open browser, navigate to url, click on something with text, click on id, write something, take a screenshot, make an excel tool that executes VBA, close browser)
-- Enable creating agents from interface
 
 ---
 
+- Enable creating agents from interface
 - Maybe, enable creating an agent from the tool bank
 - Add broker
 - Expose a websocket runner (A need for an event driven runner)
