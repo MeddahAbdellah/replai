@@ -13,7 +13,39 @@ function toType(type: string) {
   return messageType.aiMessage;
 }
 
-export function lcToMessage(message: unknown): Omit<Message, "id" | "runId"> {
+function turnToolMessageThatContainsImageIntoHumanMessage(
+  message: Omit<Message, "id" | "runId">,
+): Omit<Message, "id" | "runId">[] {
+  if (
+    message.type !== messageType.toolMessage ||
+    !message.content ||
+    !Array.isArray(message.content)
+  ) {
+    return [message];
+  }
+  if (!message.content) {
+    return [message];
+  }
+  const imageContent = message.content.filter(
+    (content) => content.type === "image_url",
+  );
+  const textContent = message.content.filter(
+    (content) => content.type !== "image_url",
+  );
+  return [
+    ...textContent.map((content) => ({
+      ...message,
+      content: content.text,
+    })),
+    ...imageContent.map((content) => ({
+      ...message,
+      type: messageType.humanMessage,
+      content: [content],
+    })),
+  ];
+}
+
+export function lcToMessage(message: unknown): Omit<Message, "id" | "runId">[] {
   const type = toType((message as any)._getType());
   if (!type) {
     throw new Error(
@@ -25,7 +57,7 @@ export function lcToMessage(message: unknown): Omit<Message, "id" | "runId"> {
     throw new Error("Message must be an object");
   }
 
-  return {
+  return turnToolMessageThatContainsImageIntoHumanMessage({
     type,
     content: "content" in message ? (message.content as string) : null,
     toolCalls:
@@ -40,5 +72,5 @@ export function lcToMessage(message: unknown): Omit<Message, "id" | "runId"> {
     toolCallId:
       "tool_call_id" in message ? (message.tool_call_id as string) : "",
     timestamp: Date.now(),
-  };
+  });
 }

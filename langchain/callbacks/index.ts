@@ -1,4 +1,4 @@
-import { Database } from "../../database/index.js";
+import { Database, Message } from "../../database/index.js";
 import { lcToMessage } from "../mappers/toMessage.js";
 
 export async function lcReplayCallbackFactory(config: {
@@ -9,7 +9,8 @@ export async function lcReplayCallbackFactory(config: {
   return {
     handleChainEnd: async (outputs: Record<string, any>) => {
       if (!("messages" in outputs)) return;
-      const messages = outputs.messages.map(lcToMessage);
+      const messages: Omit<Message, "id" | "runId">[] =
+        outputs.messages.flatMap(lcToMessage);
       await database.insertMessages(runId, messages);
     },
   };

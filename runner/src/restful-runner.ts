@@ -56,7 +56,7 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
       logger?.info("Received POST /runs request", req.body);
       const parameterizedConfigMessages = (messagesFromConfig || [])
         .map(toParameterized(parameters))
-        .map(toMessage);
+        .flatMap(toMessage);
       const configMessages = includeConfigMessages
         ? parameterizedConfigMessages
         : [];
@@ -107,8 +107,9 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
 
       const messagesBatches = parameters.map(
         (parameters) =>
-          messagesFromConfig?.map(toParameterized(parameters)).map(toMessage) ||
-          [],
+          messagesFromConfig
+            ?.map(toParameterized(parameters))
+            .flatMap(toMessage) || [],
       );
 
       logger?.info("Preparing messages for a batch run ", messagesBatches);
