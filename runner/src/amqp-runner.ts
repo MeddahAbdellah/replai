@@ -1,16 +1,35 @@
 import amqp from "amqplib";
-import { Runner } from "../model/index.js";
-import { toLcMessage } from "../../langchain/index.js";
+import {
+  AgentInvokeFactoryConfig,
+  AgentInvokeFn,
+  Runner,
+  RunnerConfig,
+} from "../model/index.js";
+import { lcReplayCallbackFactory, toLcMessage } from "../../langchain/index.js";
 import { Message } from "../../database/index.js";
 import { processRun } from "../routines/run.js";
 import { Logger } from "../../logger/model/index.js";
 
-export function amqpRunner<R = unknown, M = unknown>(config: {
+interface AmqpRunnerConfig<
+  AgentInvokeFactory extends (
+    config: AgentInvokeFactoryConfig,
+  ) => Promise<AgentInvokeFn<R, M>>,
+  R,
+  M,
+> extends Omit<RunnerConfig<AgentInvokeFactory, M>, "messages"> {
   amqpUrl: string;
   queue: string;
   toAgentMessage?: (message: Omit<Message, "id" | "runId">) => M;
   logger?: Logger;
-}): Runner<R, M> {
+}
+
+export function amqpRunner<
+  AgentInvokeFactory extends (
+    config: AgentInvokeFactoryConfig,
+  ) => Promise<AgentInvokeFn<R, M>>,
+  R = unknown,
+  M = unknown,
+>(config: AmqpRunnerConfig<AgentInvokeFactory, R, M>): Runner {
   const {
     amqpUrl,
     queue,
@@ -18,11 +37,13 @@ export function amqpRunner<R = unknown, M = unknown>(config: {
       message: Omit<Message, "id" | "runId">,
     ) => M,
     logger,
+    tools,
+    database,
+    agentInvokeFactory,
+    replayCallbackFactory = lcReplayCallbackFactory,
   } = config;
 
-  return async (params) => {
-    const { tools, database, agentInvoke, replayCallbackFactory } = params;
-
+  return async () => {
     try {
       const connection = await amqp.connect(amqpUrl);
       const channel = await connection.createChannel();
@@ -40,13 +61,13 @@ export function amqpRunner<R = unknown, M = unknown>(config: {
             toolsOnly: boolean;
           };
           try {
-            await processRun<M, R>({
+            await processRun<AgentInvokeFactory, R, M>({
               runId,
               messages,
               toolsOnly,
               database,
               tools,
-              agentInvoke,
+              agentInvokeFactory,
               toAgentMessage,
               replayCallbackFactory,
             });

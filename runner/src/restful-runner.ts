@@ -1,16 +1,28 @@
 import { Message } from "../../database/index.js";
 import express from "express";
 import cors from "cors";
-import { Runner } from "../model/index.js";
+import {
+  AgentInvokeFactoryConfig,
+  AgentInvokeFn,
+  Runner,
+  RunnerConfig,
+} from "../model/index.js";
 import {
   toLcMessage,
   lcToMessage,
   lcHumanMessageToParameterizedMessage,
+  lcReplayCallbackFactory,
 } from "../../langchain/index.js";
 import { processRun } from "../routines/run.js";
 import { Logger } from "../../logger/model/index.js";
 
-export function restfulRunner<R = unknown, M = unknown>(config: {
+interface RestfulRunnerConfig<
+  AgentInvokeFactory extends (
+    config: AgentInvokeFactoryConfig,
+  ) => Promise<AgentInvokeFn<R, M>>,
+  R,
+  M,
+> extends RunnerConfig<AgentInvokeFactory, M> {
   port: number;
   corsOptions?: cors.CorsOptions;
   processor?: (params: {
@@ -22,7 +34,15 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
   toMessage?: (message: M) => Omit<Message, "id" | "runId">;
   toAgentMessage?: (message: Omit<Message, "id" | "runId">) => M;
   logger?: Logger;
-}): Runner<R, M> {
+}
+
+export function restfulRunner<
+  AgentInvokeFactory extends (
+    config: AgentInvokeFactoryConfig,
+  ) => Promise<AgentInvokeFn<R, M>>,
+  R = unknown,
+  M = unknown,
+>(config: RestfulRunnerConfig<AgentInvokeFactory, R, M>): Runner {
   const {
     port,
     corsOptions = { origin: "*" },
@@ -32,15 +52,13 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
       message: Omit<Message, "id" | "runId">,
     ) => M,
     logger,
+    tools,
+    database,
+    agentInvokeFactory,
+    messages: messagesFromConfig,
+    replayCallbackFactory = lcReplayCallbackFactory,
   } = config;
-  return async (params) => {
-    const {
-      tools,
-      database,
-      agentInvoke,
-      messages: messagesFromConfig,
-      replayCallbackFactory,
-    } = params;
+  return async () => {
     const app = express();
     app.use(express.json({ limit: "10mb" }));
     app.use(cors(corsOptions));
@@ -79,13 +97,14 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
           logger?.info("Run processed by the processor", run.id);
         } else {
           logger?.info("Processing run internally", run.id);
-          await processRun<M, R>({
+
+          await processRun<AgentInvokeFactory, R, M>({
             runId,
             messages,
             toolsOnly,
             database,
             tools,
-            agentInvoke,
+            agentInvokeFactory,
             toAgentMessage,
             replayCallbackFactory,
           });
@@ -148,13 +167,13 @@ export function restfulRunner<R = unknown, M = unknown>(config: {
         for (const [index, messages] of messagesBatches.entries()) {
           const runId = createdRunsIds[index];
           try {
-            await processRun<M, R>({
+            await processRun<AgentInvokeFactory, R, M>({
               runId,
               messages,
               toolsOnly,
               database,
               tools,
-              agentInvoke,
+              agentInvokeFactory,
               toAgentMessage,
               replayCallbackFactory,
             });

@@ -28,6 +28,9 @@
 - Add Task success validation. ✅
 - Bullet proof the code an test manually fully. ✅
 - Create a working example of form filler and maybe idea shopper
+  - Make the tagging tool
+  - A clicking tool
+  - A typing tool
 - Bulletproof the typing.
 - Enable chaining agents.
 - Enable adding a backend for agents on the frontend.

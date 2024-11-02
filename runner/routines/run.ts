@@ -1,6 +1,10 @@
 import { Database, Message } from "../../database/index.js";
 import { toolsWithContext, ToolNotFoundError } from "../../tools/index.js";
-import { AgentInvokeParams } from "../model/index.js";
+import {
+  AgentInvokeFactoryConfig,
+  AgentInvokeFn,
+  AgentInvokeParams,
+} from "../model/index.js";
 import z from "zod";
 // Define the schema for validation
 const taskStatusSchema = z.object({
@@ -43,13 +47,19 @@ function extractTaskStatus(
   );
 }
 
-export async function processRun<M, R>(params: {
+export async function processRun<
+  AgentInvokeFactory extends (
+    config: AgentInvokeFactoryConfig,
+  ) => Promise<AgentInvokeFn<R, M>>,
+  R,
+  M,
+>(params: {
   runId: string;
   messages: Omit<Message, "id" | "runId">[];
   toolsOnly: boolean;
   database: Database;
   tools: ReturnType<typeof toolsWithContext>;
-  agentInvoke: (params: AgentInvokeParams<M>) => Promise<R>;
+  agentInvokeFactory: AgentInvokeFactory;
   toAgentMessage: (message: Omit<Message, "id" | "runId">) => M;
   replayCallbackFactory: (config: {
     database: Database;
@@ -62,7 +72,7 @@ export async function processRun<M, R>(params: {
     toolsOnly,
     database,
     tools,
-    agentInvoke,
+    agentInvokeFactory,
     toAgentMessage,
     replayCallbackFactory,
   } = params;
@@ -86,6 +96,9 @@ export async function processRun<M, R>(params: {
     const replayCallback = await replayCallbackFactory({
       database,
       runId,
+    });
+    const agentInvoke = await agentInvokeFactory({
+      tools,
     });
     result = await agentInvoke({
       messages: agentMessages,
