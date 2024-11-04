@@ -26,11 +26,9 @@ export function toMessage(message: DbMessage): Message {
             (toolCall: NonNullable<Message["toolCalls"]>[0]) => ({
               id: toolCall.id,
               name: toolCall.name,
-              ...(toolCall.args.input !== undefined
+              ...(toolCall.args !== undefined
                 ? {
-                    args: {
-                      input: toolCall.args.input || "",
-                    },
+                    args: toolCall.args,
                   }
                 : {}),
               type: toolCall.type as "tool_call",

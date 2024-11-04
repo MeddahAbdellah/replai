@@ -142,9 +142,7 @@ async function executeSingleTool(
     throw new ToolNotFoundError(toolCall.name, tools);
   }
   try {
-    const result = await tool.invoke(
-      toolCall.args.input as Record<string, unknown>,
-    );
+    const result = await tool.invoke(toolCall.args as Record<string, unknown>);
     return { toolCallName: toolCall.name, result };
   } catch (error) {
     throw error;

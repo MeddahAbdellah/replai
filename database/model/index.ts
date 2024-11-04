@@ -67,9 +67,7 @@ export const messageSchema = z.object({
       z.object({
         id: z.string(),
         name: z.string(),
-        args: z.object({
-          input: z.union([z.string(), z.record(z.unknown())]),
-        }),
+        args: z.record(z.unknown()),
         type: z.literal("tool_call"),
       }),
     ),
